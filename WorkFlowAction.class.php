@@ -230,7 +230,7 @@ class WorkFlowAction extends BaseAction
 
             // 更新业务单据状态
             $this->updateState($bizId, 1);
-            // 执行下一节点
+            // 执行下一节点（回调本方法）
             $this->handler($w_info, $this->nextNode($node['wn_node_true']), $bizId);
         } else if ($node['wn_node_type'] == 1) {
             // 处理自动节点
@@ -247,6 +247,9 @@ class WorkFlowAction extends BaseAction
 
             //更新业务单据状态
             $this->updateState($bizId, 2);
+
+            // 根据积分计算规则，得出此次工作流最后积分 TODO
+
         }
 
     }
@@ -367,6 +370,9 @@ class WorkFlowAction extends BaseAction
 
         $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
         $_wf_message->add($wm_data);
+
+        // 使用UMeng推送app消息 TODO
+
     }
 
     /**
