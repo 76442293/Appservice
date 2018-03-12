@@ -225,36 +225,29 @@ class WorkFlowAction extends BaseAction
     function handler($w_info, $node, $bizId)
     {
 
-//print_r($node);exit;
-
         // 添加流程执行信息
         $workjob_id = $this->addInfo($node, $bizId);
 
-//        print $workjob_id;
-//        print "\n";
-//        exit;
-
         if ($node['wn_node_type'] == 1) {
             // 处理开始节点
-            print "处理开始节点\n";
+//            print "处理开始节点\n";
             // 更新业务单据状态
             $this->updateState($bizId, 1);
             // 执行下一节点（回调本方法）
             $this->handler($w_info, $this->nextNode($node['wn_node_true']), $bizId);
         } else if ($node['wn_node_type'] == 3) {
             // 处理自动节点
-            print "处理自动节点\n";
+//            print "处理自动节点\n";
             // 目前没有自动节点 预留
 
         } else if ($node['wn_node_type'] == 2) {
             //处理人工节点
-            print "处理人工节点\n";
+//            print "处理人工节点\n";
             //推送人工审批通知
             $this->sendMessage($w_info, $node, $bizId, $workjob_id);
         } else if ($node['wn_node_type'] == 4) {
             //处理结束节点
-//            exit;
-            print "处理结束节点\n";
+//            print "处理结束节点\n";
 
             //更新业务单据状态
             $this->updateState($bizId, 2);
@@ -357,11 +350,6 @@ class WorkFlowAction extends BaseAction
         $_wf_nodes = M("wf_nodes", "oa_", 'DB_CONFIG_OA');
         $node = $_wf_nodes->field("*")->where("wn_id = {$node_id}")->find();
 
-        print "人工审批处理\n";
-        print_r($node);
-        print "\n";
-        print_r($_REQUEST);
-
         //根据审批结果调用不同下一结点
         if ($result == 1) {
             $this->handler($w_info, $this->nextNode($node['wn_node_true']), $bizId);
@@ -394,8 +382,8 @@ class WorkFlowAction extends BaseAction
         $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
         $_wf_message->add($wm_data);
 
-        print "推送流程消息给处理人\n";
-        print $_wf_message->getLastSql()."\n";
+//        print "推送流程消息给处理人\n";
+//        print $_wf_message->getLastSql()."\n";
 
         // 使用UMeng推送app消息 TODO
 
@@ -424,7 +412,7 @@ class WorkFlowAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
@@ -481,7 +469,7 @@ class WorkFlowAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
