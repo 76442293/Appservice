@@ -207,6 +207,9 @@ class WorkFlowAction extends BaseAction
             // 取得工作流信息
             $w_info = $_wf_workflow->field("*")->where("wf_id = {$wf_id}")->find();
 
+//print_r($w_info);
+//exit;
+
             // 开始执行节点处理
             $this->handler($w_info, $this->startNode($wf_id), $bizId);
         }
@@ -221,29 +224,37 @@ class WorkFlowAction extends BaseAction
      */
     function handler($w_info, $node, $bizId)
     {
+
+//print_r($node);exit;
+
         // 添加流程执行信息
         $workjob_id = $this->addInfo($node, $bizId);
 
+//        print $workjob_id;
+//        print "\n";
+//        exit;
 
-        if ($node['wn_node_type'] == 0) {
+        if ($node['wn_node_type'] == 1) {
             // 处理开始节点
-
+            print "处理开始节点\n";
             // 更新业务单据状态
             $this->updateState($bizId, 1);
             // 执行下一节点（回调本方法）
             $this->handler($w_info, $this->nextNode($node['wn_node_true']), $bizId);
-        } else if ($node['wn_node_type'] == 1) {
+        } else if ($node['wn_node_type'] == 3) {
             // 处理自动节点
-
+            print "处理自动节点\n";
             // 目前没有自动节点 预留
 
         } else if ($node['wn_node_type'] == 2) {
             //处理人工节点
-
+            print "处理人工节点\n";
             //推送人工审批通知
             $this->sendMessage($w_info, $node, $bizId, $workjob_id);
-        } else if ($node['wn_node_type'] == 9) {
+        } else if ($node['wn_node_type'] == 4) {
             //处理结束节点
+//            exit;
+            print "处理结束节点\n";
 
             //更新业务单据状态
             $this->updateState($bizId, 2);
@@ -256,13 +267,17 @@ class WorkFlowAction extends BaseAction
 
     /**
      * 开始节点
-     * @param $wf_id 所属工作流ID
+     * @param $wf_id 工作流ID
      * @return mixed 此工作流的开始节点
      */
     function startNode($wf_id)
     {
         $_wf_nodes = M("wf_nodes", "oa_", 'DB_CONFIG_OA');
-        $node = $_wf_nodes->field("*")->where("wn_workflow = {$wf_id} and wn_node_type = 0")->find();
+        $node = $_wf_nodes->field("*")->where("wn_workflow = {$wf_id} and wn_node_type = 1")->find();
+
+//        print $_wf_nodes->getLastSql();
+//        print_r($node);
+//        print "\n";
 
         return $node;
     }
@@ -285,6 +300,9 @@ class WorkFlowAction extends BaseAction
         $wj_data['wj_user'] = $node['wn_user'];
 
         $count = $_wf_workjob->field("count(0) as step")->where("wj_biz_id = {$bizId}")->find();
+
+//print_r($count);
+
         $wj_data['wj_step'] = $count['step'];
 
         $insertId = $_wf_workjob->add($wj_data);
@@ -339,6 +357,11 @@ class WorkFlowAction extends BaseAction
         $_wf_nodes = M("wf_nodes", "oa_", 'DB_CONFIG_OA');
         $node = $_wf_nodes->field("*")->where("wn_id = {$node_id}")->find();
 
+        print "人工审批处理\n";
+        print_r($node);
+        print "\n";
+        print_r($_REQUEST);
+
         //根据审批结果调用不同下一结点
         if ($result == 1) {
             $this->handler($w_info, $this->nextNode($node['wn_node_true']), $bizId);
@@ -371,6 +394,9 @@ class WorkFlowAction extends BaseAction
         $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
         $_wf_message->add($wm_data);
 
+        print "推送流程消息给处理人\n";
+        print $_wf_message->getLastSql()."\n";
+
         // 使用UMeng推送app消息 TODO
 
     }
@@ -381,7 +407,7 @@ class WorkFlowAction extends BaseAction
     public function startWorkflow()
     {
         $wf_id = $_REQUEST['wf_id'];
-        $wj_biz_ids = $_REQUEST['$wj_biz_ids'];
+        $wj_biz_ids = $_REQUEST['wj_biz_ids'];
         $rs = $this->start($wf_id, $wj_biz_ids);
         if ($rs === false) {
             $_r = array(
@@ -398,7 +424,7 @@ class WorkFlowAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r);
+            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
@@ -420,6 +446,8 @@ class WorkFlowAction extends BaseAction
         $wj_examine_opinion = $_REQUEST['wj_examine_opinion'];
         // 消息ID
         $message_id = $_REQUEST['message_id'];
+        // 工作任务ID
+        $wj_id = $_REQUEST['wj_id'];
 
         $this->handler_user($wf_id, $wn_id, $wj_biz_id, $wj_examine_result);
 
@@ -430,7 +458,6 @@ class WorkFlowAction extends BaseAction
         $_wf_message->where("wm_id = {$message_id}")->save($wm_data);
 
         // 更新工作任务记录信息
-        $wj_id = $_REQUEST['wj_id'];
         $wj_data = array();
         $wj_data['wj_examine_result'] = $wj_examine_result;
         $wj_data['wj_examine_opinion'] = $wj_examine_opinion;
@@ -442,7 +469,8 @@ class WorkFlowAction extends BaseAction
         if ($rs === false) {
             $_r = array(
                 'errorCode' => '0',
-                'errorName' => '执行错误'
+                'errorName' => '执行错误',
+                'errorSql' => $_wf_workjob->getlastsql(),
             );
         } else {
             $_r = array(
@@ -453,7 +481,7 @@ class WorkFlowAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r);
+            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
