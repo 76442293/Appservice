@@ -68,38 +68,34 @@ class WorkFlowAction extends BaseAction
     {
         $wf_module = isset($_REQUEST['wf_module']) ? $_REQUEST['wf_module'] : '0';
 
-        if ($wf_module == 0) {
-            // 参数为空
+        $where = '1=1';
+        if ($wf_module != 0) {
+            $where = $where . " and wf_module = {$wf_module}";
+        }
+
+        $_wf_workflow = M("wf_workflow", "oa_", 'DB_CONFIG_OA');
+
+        $list = $_wf_workflow->field("*")->where($where)->select();
+
+        if ($list === false) {
+            // 执行错误
             $_r = array(
-                'errorCode' => '3',
-                'errorName' => 'wf_module参数为空',
+                'errorCode' => '0',
+                'errorName' => '执行错误',
+                'errorSql' => $_wf_workflow->getlastsql(),
             );
         } else {
-
-            $_wf_workflow = M("wf_workflow", "oa_", 'DB_CONFIG_OA');
-
-            $list = $_wf_workflow->field("*")->where("wf_module = {$wf_module}")->select();
-
-            if ($list === false) {
-                // 执行错误
+            if (empty($list)) {
                 $_r = array(
-                    'errorCode' => '0',
-                    'errorName' => '执行错误',
-                    'errorSql' => $_wf_workflow->getlastsql(),
+                    'errorCode' => '2',
+                    'errorName' => '没有数据',
                 );
             } else {
-                if (empty($list)) {
-                    $_r = array(
-                        'errorCode' => '2',
-                        'errorName' => '没有数据',
-                    );
-                } else {
-                    $_r = array(
-                        'errorCode' => '1',
-                        'errorName' => '查询成功',
-                        'list' => $list,
-                    );
-                }
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '查询成功',
+                    'list' => $list,
+                );
             }
         }
 
