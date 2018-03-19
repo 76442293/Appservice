@@ -27,6 +27,7 @@ class ModuleAction extends BaseAction
         $wm_data['wm_icon'] = $_REQUEST['wm_icon'];
         $wm_data['wm_tpl'] = $_REQUEST['wm_tpl'];
         $wm_data['wm_abled'] = $_REQUEST['wm_abled'];
+        $wm_data['wm_type'] = $_REQUEST['wm_type'];
 
         $_wf_module = M("wf_module", "oa_", 'DB_CONFIG_OA');
         if ($wm_data['wm_abled'] == '1') {
