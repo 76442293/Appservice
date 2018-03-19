@@ -22,11 +22,41 @@ class FormsAction extends BaseAction
     {
         $where['wff_abled'] = 1;
 
+        // 公司ID
+        $wff_company = $_REQUEST['wff_company'];
+        if(isset($wff_company)){
+            $where['wff_company'] = $wff_company;
+        }
+
+        // 模块ID
+        $wff_module = $_REQUEST['wff_module'];
+        if(isset($wff_module)){
+            $where['wff_module'] = $wff_module;
+        }
+
+        // 工作流ID
+        $wff_workflow = $_REQUEST['wff_workflow'];
+        if(isset($wff_workflow)){
+            $where['wff_workflow'] = $wff_workflow;
+        }
+
+        // 创建时间
+        $wff_create_time = $_REQUEST['wff_create_time'];
+        if(isset($wff_create_time)){
+            $where['wff_create_time'] = $wff_create_time;
+        }
+
+        // 表单中文名称
+        $wff_name_ch = $_REQUEST['wff_name_ch'];
+        if(isset($wff_name_ch)){
+            $where['wff_name_ch'] = $wff_name_ch;
+        }
+
         // 实例化表单model
         $_forms = M("wf_forms", "oa_", 'DB_CONFIG_OA');
 
         // 查询表单列表
-        $list = $_forms->field("wff_id,wff_name,wff_company,wff_module,wff_workflow,wff_node,wff_abled,wff_create_time,wff_start_time")->where($where)->select();
+        $list = $_forms->field("*")->where($where)->select();
         if ($list === false) {
             // 执行错误
             $_r = array(
