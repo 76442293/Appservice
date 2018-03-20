@@ -112,9 +112,12 @@ class FormWidgetsAction extends BaseAction
             );
         }
 
-        // 返回数据
-        echo $_GET['callback'] . '(' . json_encode($_r) . ')';
-        exit;
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            header('Access-Control-Allow-Origin:*');
+            echo json_encode($_r);
+        }
     }
 
     /**
@@ -167,7 +170,7 @@ class FormWidgetsAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
         }
 
         exit;
@@ -241,7 +244,7 @@ class FormWidgetsAction extends BaseAction
 
         $wfw_data = json_decode($jsonStr, true);
         $wfw_id = $wfw_data['wfw_id'];
-        $wfw_data['wfw_attr'] = json_encode($wfw_data['wfw_attr'],JSON_UNESCAPED_UNICODE);
+        $wfw_data['wfw_attr'] = json_encode($wfw_data['wfw_attr'], JSON_UNESCAPED_UNICODE);
 
         $_form_widgets = M("wf_form_widgets", "oa_", 'DB_CONFIG_OA');
         if ($wfw_id == '0') {
