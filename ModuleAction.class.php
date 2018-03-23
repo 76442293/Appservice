@@ -244,7 +244,128 @@ class ModuleAction extends BaseAction
         exit;
     }
 
-    //创建编辑工作流
+
+    /**
+     * 根据模块ID复用模块
+     */
+    public function copyModule()
+    {
+        $wm_id = isset($_REQUEST['wm_id']) ? $_REQUEST['wm_id'] : '0';
+
+        if ($wm_id == 0) {
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => 'wm_id参数缺少'
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r);
+            }
+            exit;
+        }
+
+        $_wf_module = M("wf_module", "oa_", 'DB_CONFIG_OA');
+        if ($_wf_module === false) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '执行错误',
+                'errorSql' => $_wf_module->getlastsql()
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r);
+            }
+            exit;
+        }
+
+        // 取得此模块信息
+        $module = $_wf_module->field("*")->where("wm_id = {$wm_id}")->find();
+
+        // 主键ID为0
+        unset($module['wm_id']);
+        // 所属公司为0
+        $module['wm_comany'] = 0;
+        // 管理人为0
+        $module['wm_users'] = 0;
+        // 适用部门为0
+        $module['wm_partments'] = 0;
+
+        // 插入此模块
+        $new_module_id = $_wf_module->add($module);
+
+        // 查找此模块下的所有表单结构
+        $_wf_forms = M("wf_forms", "oa_", 'DB_CONFIG_OA');
+        $forms = $_wf_forms->field("*")->where("wff_module = {$wm_id}")->select();
+
+        $_wf_datalist = M("wf_datalist", "oa_", 'DB_CONFIG_OA');
+        $_wf_statistics = M("wf_statistics", "oa_", 'DB_CONFIG_OA');
+
+        foreach ($forms as $key => $form) {
+            $form_id = $form['wff_id'];
+            // 主键ID
+            unset($form['wff_id']);
+            // 公司id
+            $form['wff_company'] = 0;
+            // 所属模块为新的模块
+            $form['wff_module'] = $new_module_id;
+
+            // 插入此表单结构
+            $new_form_id = $_wf_forms->add($form);
+
+            // 查找此表单的所有列表管理配置
+            $datalistList = $_wf_datalist->field("*")->where("wd_form = {$form_id}")->select();
+            foreach ($datalistList as $k => $datalist) {
+                // 主键ID
+                unset($datalist['wd_id']);
+                // 所属公司为0
+                $datalist['wd_company'] = 0;
+                // 所属模块为新的模块
+                $datalist['wd_module'] = $new_module_id;
+                // 表单结构ID
+                $datalist['wd_form'] = $new_form_id;
+
+                // 插入此列表管理结构
+                $new_datalist_id = $_wf_datalist->add($datalist);
+
+            }
+
+            // 查找此表单的统计管理
+            $statisticsList = $_wf_statistics->field("*")->where("ws_form = {$form_id}")->select();
+            foreach ($statisticsList as $kk => $statistics) {
+                // 主键ID
+                unset($statistics['ws_id']);
+                // 所属公司为0
+                $statistics['ws_company'] = 0;
+                // 所属模块
+                $statistics['ws_module'] = $new_module_id;
+                // 所属表单结构
+                $statistics['ws_form'] = $new_form_id;
+                // 创建用户
+                $statistics['ws_create_userid'] = 0;
+
+                // 插入此统计配置
+                $_wf_statistics->add($statistics);
+            }
+
+        }
+
+
+        $_r = array(
+            'errorCode' => '1',
+            'errorName' => '执行成功',
+        );
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r);
+        }
+        exit;
+    }
 
 
 }
