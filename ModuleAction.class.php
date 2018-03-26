@@ -251,6 +251,8 @@ class ModuleAction extends BaseAction
     public function copyModule()
     {
         $wm_id = isset($_REQUEST['wm_id']) ? $_REQUEST['wm_id'] : '0';
+        $wm_company = isset($_REQUEST['wm_company']) ? $_REQUEST['wm_company'] : '0';
+
 
         if ($wm_id == 0) {
             $_r = array(
@@ -261,13 +263,15 @@ class ModuleAction extends BaseAction
             if (isset($_GET['callback'])) {
                 echo $_GET['callback'] . '(' . json_encode($_r) . ')';
             } else {
-                echo json_encode($_r);
+                echo json_encode($_r,JSON_UNESCAPED_UNICODE);
             }
             exit;
         }
 
         $_wf_module = M("wf_module", "oa_", 'DB_CONFIG_OA');
-        if ($_wf_module === false) {
+        // 取得此模块信息
+        $module = $_wf_module->field("*")->where("wm_id = {$wm_id}")->find();
+        if ($module === false) {
             $_r = array(
                 'errorCode' => '0',
                 'errorName' => '执行错误',
@@ -277,22 +281,23 @@ class ModuleAction extends BaseAction
             if (isset($_GET['callback'])) {
                 echo $_GET['callback'] . '(' . json_encode($_r) . ')';
             } else {
-                echo json_encode($_r);
+                echo json_encode($_r,JSON_UNESCAPED_UNICODE);
             }
             exit;
         }
 
-        // 取得此模块信息
-        $module = $_wf_module->field("*")->where("wm_id = {$wm_id}")->find();
-
         // 主键ID为0
         unset($module['wm_id']);
         // 所属公司为0
-        $module['wm_comany'] = 0;
+        $module['wm_comany'] = $wm_company;
         // 管理人为0
         $module['wm_users'] = 0;
         // 适用部门为0
         $module['wm_partments'] = 0;
+        // 创建时间
+        $module['wm_create_time'] = date("Y-m-d H:i:s");
+        // 启用时间
+        $module['wm_start_time'] = date("Y-m-d H:i:s");
 
         // 插入此模块
         $new_module_id = $_wf_module->add($module);
@@ -303,13 +308,14 @@ class ModuleAction extends BaseAction
 
         $_wf_datalist = M("wf_datalist", "oa_", 'DB_CONFIG_OA');
         $_wf_statistics = M("wf_statistics", "oa_", 'DB_CONFIG_OA');
+        $_wf_workflow = M("wf_workflow", "oa_", 'DB_CONFIG_OA');
 
         foreach ($forms as $key => $form) {
             $form_id = $form['wff_id'];
             // 主键ID
             unset($form['wff_id']);
             // 公司id
-            $form['wff_company'] = 0;
+            $form['wff_company'] = $wm_company;
             // 所属模块为新的模块
             $form['wff_module'] = $new_module_id;
 
@@ -322,14 +328,16 @@ class ModuleAction extends BaseAction
                 // 主键ID
                 unset($datalist['wd_id']);
                 // 所属公司为0
-                $datalist['wd_company'] = 0;
+                $datalist['wd_company'] = $wm_company;
                 // 所属模块为新的模块
                 $datalist['wd_module'] = $new_module_id;
                 // 表单结构ID
                 $datalist['wd_form'] = $new_form_id;
+                // 创建时间
+                $datalist['wd_create_time'] = date("Y-m-d H:i:s");
 
                 // 插入此列表管理结构
-                $new_datalist_id = $_wf_datalist->add($datalist);
+                $_wf_datalist->add($datalist);
 
             }
 
@@ -339,18 +347,47 @@ class ModuleAction extends BaseAction
                 // 主键ID
                 unset($statistics['ws_id']);
                 // 所属公司为0
-                $statistics['ws_company'] = 0;
+                $statistics['ws_company'] = $wm_company;
                 // 所属模块
                 $statistics['ws_module'] = $new_module_id;
                 // 所属表单结构
                 $statistics['ws_form'] = $new_form_id;
                 // 创建用户
                 $statistics['ws_create_userid'] = 0;
+                // 创建时间
+                $statistics['ws_create_time'] = date("Y-m-d H:i:s");
 
                 // 插入此统计配置
                 $_wf_statistics->add($statistics);
             }
 
+            // 查找此表单的工作流
+            $workflow = $_wf_workflow->field("*")->where("wf_id = {$form['wff_workflow']}")->find();
+
+            // 工作流ID
+            unset($workflow['wf_id']);
+            // 所属公司
+            $workflow['wf_company'] = $wm_company;
+            // 所属模块
+            $workflow['wf_module'] = $new_module_id;
+            // 创建时间
+            $workflow['wf_create_time'] = date("Y-m-d H:i:s");
+            // 启用时间
+            $workflow['wf_start_time'] = date("Y-m-d H:i:s");
+
+            $new_workflow_id = $_wf_workflow->add($workflow);
+
+
+            // 更新新表单的工作流ID
+            $forms_new = $_wf_forms->field("*")->where("wff_id = {$new_form_id}")->find();
+            $forms_new['wff_workflow'] = $new_workflow_id;
+            $forms_new['wff_create_time'] = date("Y-m-d H:i:s");
+            $forms_new['wff_start_time'] = date("Y-m-d H:i:s");
+            $_wf_forms->save($forms_new);
+
+            // 工作流下的节点不复用
+            // 原因1:无法指定审批人
+            // 原因2:无法指定下一个审批节点的编号
         }
 
 
@@ -362,7 +399,7 @@ class ModuleAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r);
+            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
