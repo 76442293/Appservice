@@ -22,6 +22,18 @@ class FormsAction extends BaseAction
     {
         $where['wff_abled'] = 1;
 
+        // 表单结构ID
+        $wff_id = $_REQUEST['wff_id'];
+        if(isset($wff_id)){
+            $where['wff_id'] = $wff_id;
+        }
+
+        // 表单结构名称
+        $wff_name = $_REQUEST['wff_name'];
+        if(isset($wff_name)){
+            $where['wff_name'] = $wff_name;
+        }
+
         // 公司ID
         $wff_company = $_REQUEST['wff_company'];
         if(isset($wff_company)){
