@@ -222,14 +222,91 @@ class AgentAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
 
-    // 删除管理员
 
-    // 创建.编辑 下级代理商(创建者所在代理商必须是总代或代理商  不能是公司)
+    /**
+     * 删除管理员
+     */
+    public function deleteAgentUser()
+    {
+        $au_id = isset($_REQUEST['au_id']) ? $_REQUEST['au_id'] : '0';
+        if ($au_id == 0) {
+            // 参数为空
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => 'au_id参数为空',
+            );
+        } else {
+            $_wf_agent_user = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
+
+            $rs = $_wf_agent_user->where("au_id = {$au_id}")->delete();
+            if ($rs === false) {
+                $_r = array(
+                    'errorCode' => '0',
+                    'errorName' => '删除错误',
+                    'errorSql' => $_wf_agent_user->getlastsql(),
+                );
+            } else {
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '删除成功',
+                );
+            }
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 创建.编辑 代理商(创建者所在代理商必须是总代或代理商  不能是公司,且能否创建代理商的开关是开启状态)
+     */
+    public function editAgent()
+    {
+        $a_id = isset($_REQUEST['a_id']) ? $_REQUEST['a_id'] : '0';
+        $a_data = array();
+        $a_data['a_name'] = $_REQUEST['a_name'];
+        $a_data['a_level'] = $_REQUEST['a_level'];
+        $a_data['a_parent_id'] = $_REQUEST['a_parent_id'];
+        $a_data['create_time'] = date("Y-m-d H:i:s");
+        $a_data['is_can_create'] = $_REQUEST['is_can_create'];
+
+        $_wf_agent = M("wf_agent", "oa_", 'DB_CONFIG_OA');
+        if ($a_id == '0') {
+            //新增代理商
+            $rs = $_wf_agent->add($a_data);
+        } else {
+            //修改代理商
+            $rs = $_wf_agent->where("$a_id = {a_id}")->save($a_data);
+        }
+
+        if ($rs === false) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '执行错误',
+                'errorSql' => $_wf_agent->getlastsql(),
+            );
+        } else {
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '执行成功',
+            );
+        }
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
 
     // 删除代理商
 
