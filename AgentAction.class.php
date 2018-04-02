@@ -14,23 +14,23 @@ class AgentAction extends BaseAction
     }
 
     /**
-     * 根据用户ID取得用户代理商级别以及下属公司列表
+     * 根据用户ID取得用户代理商以及下属公司列表
      */
     public function getAgentByUserID()
     {
-        // 用户ID
-        $uid = isset($_REQUEST['uid']) ? $_REQUEST['uid'] : '0';
+        // 代理商管理员ID
+        $au_id = isset($_REQUEST['au_id']) ? $_REQUEST['au_id'] : '0';
 
-        if ($uid == 0) {
+        if ($au_id == 0) {
             $_r = array(
                 'errorCode' => '2',
-                'errorName' => 'uid参数缺少',
+                'errorName' => 'au_id参数缺少',
             );
 
             if (isset($_GET['callback'])) {
                 echo $_GET['callback'] . '(' . json_encode($_r) . ')';
             } else {
-                echo json_encode($_r);
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
             }
             exit;
         }
@@ -39,7 +39,7 @@ class AgentAction extends BaseAction
         $_companys = M("companys", "oa_", 'DB_CONFIG_OA');
 
         $wf_agent = $_wf_agent->field("oa_wf_agent.*")->join("oa_wf_agent_user agent_user on agent_user.a_id = oa_wf_agent.a_id")
-            ->where("agent_user.uid = {$uid} ")->find();
+            ->where("agent_user.au_id = {$au_id} ")->find();
 
         if ($wf_agent === false) {
             $_r = array(
@@ -49,14 +49,14 @@ class AgentAction extends BaseAction
             );
         } else {
 
-            $agent_compay_list = $_companys->field("oa_companys.*")->join("oa_wf_agent_compay compay on compay.compay_id = oa_companys.company_id")
-                ->where("compay.a_id = {$wf_agent['a_id']}")->select();
+            $agent_company_list = $_companys->field("oa_companys.*")->join("oa_wf_agent_company company on company.company_id = oa_companys.company_id")
+                ->where("company.a_id = {$wf_agent['a_id']}")->select();
 
             $_r = array(
                 'errorCode' => '1',
                 'errorName' => '查询成功',
                 'agent' => $wf_agent,
-                'compay_list' => $agent_compay_list
+                'company_list' => $agent_company_list
             );
         }
 
@@ -80,14 +80,14 @@ class AgentAction extends BaseAction
 
         if (!isset($au_login_name)) {
             $_r = array(
-                'errorCode' => '2',
+                'errorCode' => '4',
                 'errorName' => 'au_login_name参数缺少',
             );
 
             if (isset($_GET['callback'])) {
                 echo $_GET['callback'] . '(' . json_encode($_r) . ')';
             } else {
-                echo json_encode($_r);
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
             }
             exit;
         }
@@ -101,7 +101,7 @@ class AgentAction extends BaseAction
             if (isset($_GET['callback'])) {
                 echo $_GET['callback'] . '(' . json_encode($_r) . ')';
             } else {
-                echo json_encode($_r);
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
             }
             exit;
         }
@@ -121,7 +121,7 @@ class AgentAction extends BaseAction
         } else {
             if (empty($list)) {
                 $_r = array(
-                    'errorCode' => '3',
+                    'errorCode' => '2',
                     'errorName' => '用户登录名称或者密码错误',
                 );
             } else {
@@ -137,7 +137,7 @@ class AgentAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r);
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
@@ -153,8 +153,8 @@ class AgentAction extends BaseAction
         $au_data['au_psd'] = md5($_REQUEST['au_psd']);
         $au_data['a_id'] = $_REQUEST['a_id'];
         $au_data['au_name'] = $_REQUEST['au_name'];
+        $au_data['au_mobile'] = $_REQUEST['au_mobile'];
         $au_data['create_time'] = date("Y-m-d H:i:s");
-        $au_data['is_can_create'] = $_REQUEST['is_can_create'];
 
         $_wf_agent_user = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
         if ($au_id == '0') {
@@ -267,7 +267,7 @@ class AgentAction extends BaseAction
     }
 
     /**
-     * 创建.编辑 代理商(创建者所在代理商必须是总代或代理商  不能是公司,且能否创建代理商的开关是开启状态)
+     * 创建/编辑 代理商(创建者所在代理商必须是总代或代理商  不能是公司,且创建者的<能否创建代理商>的开关是开启状态)
      */
     public function editAgent()
     {
@@ -308,8 +308,419 @@ class AgentAction extends BaseAction
         exit;
     }
 
-    // 删除代理商
+    /**
+     * 删除代理商
+     */
+    public function deleteAgent()
+    {
+        $a_id = isset($_REQUEST['a_id']) ? $_REQUEST['a_id'] : '0';
+        if ($a_id == 0) {
+            // 参数为空
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => 'a_id参数为空',
+            );
+        } else {
+            $_wf_agent_company = M("wf_agent_company", "oa_", 'DB_CONFIG_OA');
+            $_wf_agent_user = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
+            $_wf_agent = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
 
-    // 给指定的代理商分配公司(公司级别的代理商只能分配一个公司,同一个公司不能属于多个代理商)
+            $agent_company = $_wf_agent_company->find("*")->where("a_id = {$a_id}")->select();
+            $agent_user = $_wf_agent_user->find("*")->where("a_id = {$a_id}")->select();
+            $child_agent = $_wf_agent->find("*")->where("a_parent_id = {$a_id}")->select();
+            if (!empty($agent_company)) {
+                $_r = array(
+                    'errorCode' => '3',
+                    'errorName' => '删除错误',
+                    'errorReason' => '该代理商仍有下属公司,不能删除',
+                );
+            } elseif (!empty($agent_user)) {
+                $_r = array(
+                    'errorCode' => '4',
+                    'errorName' => '删除错误',
+                    'errorReason' => '该代理商仍有下属管理员,不能删除',
+                );
+            } elseif (!empty($child_agent)) {
+                $_r = array(
+                    'errorCode' => '5',
+                    'errorName' => '删除错误',
+                    'errorReason' => '该代理商仍有下属代理商,不能删除',
+                );
+            } else {
+
+                $_wf_agent = M("wf_agent", "oa_", 'DB_CONFIG_OA');
+                $rs = $_wf_agent->where("a_id = {$a_id}")->delete();
+
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '删除成功',
+                );
+            }
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 给指定的代理商分配公司(公司级别的代理商只能分配一个公司,同一个公司不能属于多个代理商)
+     * 调用者代理商级别必须大于0
+     */
+    public function distributeCompany()
+    {
+        $a_id = isset($_REQUEST['a_id']) ? $_REQUEST['a_id'] : '0';
+        $company_id = isset($_REQUEST['company_id']) ? $_REQUEST['company_id'] : '0';
+
+
+        if (!isset($a_id)) {
+            $_r = array(
+                'errorCode' => '6',
+                'errorName' => 'a_id参数缺少',
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
+
+        if (!isset($company_id)) {
+            $_r = array(
+                'errorCode' => '5',
+                'errorName' => 'company_id参数缺少',
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
+
+
+        $_wf_agent = M("wf_agent", "oa_", 'DB_CONFIG_OA');
+        $_wf_agent_company = M("wf_agent_company", "oa_", 'DB_CONFIG_OA');
+
+        $agent = $_wf_agent->field("*")->where("a_id = {$a_id}")->find();
+
+        // 代理商不存在
+        if (empty($agent)) {
+            $_r = array(
+                'errorCode' => '4',
+                'errorName' => '执行错误',
+                'errorReason' => '代理商不存在',
+            );
+        } else {
+            if ($agent['a_level'] == 0) {
+                // 代理商的全部下属公司
+                $agent_company_list = $_wf_agent_company->field("*")->where("a_id = {$a_id}")->select();
+                if (count($agent_company_list) >= 1) {
+                    $_r = array(
+                        'errorCode' => '3',
+                        'errorName' => '执行错误',
+                        'errorReason' => '代理商为公司级别,只能有一个下属公司',
+                    );
+                } else {
+                    $agent_company = $_wf_agent_company->field("*")->where("company_id = {$company_id}")->select();
+
+                    // 公司是否已归属代理商
+                    if (empty($agent_company)) {
+                        $ac_data = array();
+                        $ac_data['a_id'] = $a_id;
+                        $ac_data['company_id'] = $company_id;
+                        $ac_data['create_time'] = date("Y-m-d H:i:s");
+
+                        $rs = $agent_company->add($ac_data);
+
+                        $_r = array(
+                            'errorCode' => '1',
+                            'errorName' => '执行成功',
+                        );
+                    } else {
+
+                        $_r = array(
+                            'errorCode' => '2',
+                            'errorName' => '执行错误',
+                            'errorReason' => '公司已有归属代理商',
+                        );
+                    }
+                }
+            }
+
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 代理商的指定下属公司解除关系
+     */
+    public function removeCompany()
+    {
+        $a_id = isset($_REQUEST['a_id']) ? $_REQUEST['a_id'] : '0';
+        $company_id = isset($_REQUEST['company_id']) ? $_REQUEST['company_id'] : '0';
+
+
+        if (!isset($a_id)) {
+            $_r = array(
+                'errorCode' => '4',
+                'errorName' => 'a_id参数缺少',
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
+
+        if (!isset($company_id)) {
+            $_r = array(
+                'errorCode' => '3',
+                'errorName' => 'company_id参数缺少',
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
+
+
+        $_wf_agent = M("wf_agent", "oa_", 'DB_CONFIG_OA');
+        $_wf_agent_company = M("wf_agent_company", "oa_", 'DB_CONFIG_OA');
+
+        // 代理商信息
+        $agent = $_wf_agent->field("*")->where("a_id = {$a_id}")->find();
+
+        // 代理商不存在
+        if (empty($agent)) {
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => '执行错误',
+                'errorReason' => '代理商不存在',
+            );
+        } else {
+            if ($agent['a_level'] == 0) {
+
+                // 下属公司
+                $agent_company = $_wf_agent_company->field("*")->where("company_id = {$company_id} and a_id = {$a_id}")->select();
+
+                // 公司是否已归属代理商
+                if (!empty($agent_company)) {
+
+                    $rs = $_wf_agent_company->where("company_id = {$company_id} and a_id = {$a_id}")->delete();
+
+                    $_r = array(
+                        'errorCode' => '1',
+                        'errorName' => '执行成功',
+                    );
+                }
+            }
+
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 指定A代理商为B代理商的下级(B代理商级别必须大于0,调用者为B)
+     */
+    public function appointChildAgent()
+    {
+        $parent_a_id = isset($_REQUEST['parent_a_id']) ? $_REQUEST['parent_a_id'] : '0';
+        $child_a_id = isset($_REQUEST['child_a_id']) ? $_REQUEST['child_a_id'] : '0';
+
+
+        if (!isset($parent_a_id)) {
+            $_r = array(
+                'errorCode' => '7',
+                'errorName' => 'parent_a_id参数缺少',
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
+
+        if (!isset($child_a_id)) {
+            $_r = array(
+                'errorCode' => '6',
+                'errorName' => 'child_a_id参数缺少',
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
+
+
+        $_wf_agent = M("wf_agent", "oa_", 'DB_CONFIG_OA');
+        $_wf_agent_company = M("wf_agent_company", "oa_", 'DB_CONFIG_OA');
+
+        // 上级代理商信息
+        $parent_agent = $_wf_agent->field("*")->where("a_id = {$parent_a_id}")->find();
+        // 下级代理商信息
+        $child_agent = $_wf_agent->field("*")->where("a_id = {$child_a_id}")->find();
+
+        // 代理商不存在
+        if (empty($parent_agent)) {
+            $_r = array(
+                'errorCode' => '5',
+                'errorName' => '执行错误',
+                'errorReason' => '上级代理商不存在',
+            );
+        } else if (empty($child_agent)) {
+            $_r = array(
+                'errorCode' => '4',
+                'errorName' => '执行错误',
+                'errorReason' => '下级代理商不存在',
+            );
+        } else {
+            if ($parent_agent['a_level'] == 0) {
+                $_r = array(
+                    'errorCode' => '3',
+                    'errorName' => '执行错误',
+                    'errorReason' => '上级代理商级别太低',
+                );
+            } elseif ($child_agent['a_parent_id'] != 0) {
+                $_r = array(
+                    'errorCode' => '2',
+                    'errorName' => '执行错误',
+                    'errorReason' => '下级代理商级已有上级',
+                );
+            } else {
+
+                $child_agent['a_parent_id'] = $parent_a_id;
+
+                // 更新下级代理商的父ID
+                $rs = $_wf_agent->where("a_id = {$child_a_id}")->save($child_agent);
+
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '执行成功',
+                );
+            }
+
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 解除A代理商为B代理商的下级关系(调用者为B)
+     */
+    public function removeChildAgent()
+    {
+        $parent_a_id = isset($_REQUEST['parent_a_id']) ? $_REQUEST['parent_a_id'] : '0';
+        $child_a_id = isset($_REQUEST['child_a_id']) ? $_REQUEST['child_a_id'] : '0';
+
+
+        if (!isset($parent_a_id)) {
+            $_r = array(
+                'errorCode' => '5',
+                'errorName' => 'parent_a_id参数缺少',
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
+
+        if (!isset($child_a_id)) {
+            $_r = array(
+                'errorCode' => '4',
+                'errorName' => 'child_a_id参数缺少',
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
+
+
+        $_wf_agent = M("wf_agent", "oa_", 'DB_CONFIG_OA');
+        $_wf_agent_company = M("wf_agent_company", "oa_", 'DB_CONFIG_OA');
+
+        // 上级代理商信息
+        $parent_agent = $_wf_agent->field("*")->where("a_id = {$parent_a_id}")->find();
+        // 下级代理商信息
+        $child_agent = $_wf_agent->field("*")->where("a_id = {$child_a_id}")->find();
+
+        // 代理商不存在
+        if (empty($parent_agent)) {
+            $_r = array(
+                'errorCode' => '3',
+                'errorName' => '执行错误',
+                'errorReason' => '上级代理商不存在',
+            );
+        } else if (empty($child_agent)) {
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => '执行错误',
+                'errorReason' => '下级代理商不存在',
+            );
+        } else {
+
+            $child_agent['a_parent_id'] = 0;
+
+            // 更新下级代理商的父ID
+            $rs = $_wf_agent->where("a_id = {$child_a_id}")->save($child_agent);
+
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '执行成功',
+            );
+
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    // 修改代理商管理员密码
+
+    // 重置代理商管理员密码
 
 }
