@@ -719,6 +719,83 @@ class AgentAction extends BaseAction
         exit;
     }
 
+
+    /**
+     * 根据代理商ID取得下属代理商列表
+     */
+    public function listChildAgent()
+    {
+        $a_parent_id = isset($_REQUEST['a_parent_id']) ? $_REQUEST['a_parent_id'] : '0';
+
+        if ($a_parent_id == 0) {
+            // 参数为空
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => 'a_parent_id参数为空',
+            );
+        } else {
+
+            $_wf_agent = M("wf_agent", "oa_", 'DB_CONFIG_OA');
+
+            $list = $_wf_agent->field("*")->where("a_parent_id = {$a_parent_id}")->select();
+
+            if ($list === false) {
+                $_r = array(
+                    'errorCode' => '0',
+                    'errorName' => '查询错误',
+                    'errorSql' => $_wf_agent->getlastsql(),
+                );
+            } else {
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '查询成功',
+                    'list' => $list,
+                );
+            }
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+
+    /**
+     * 取得所有没有代理商归属的公司列表
+     */
+    public function listCompanyNoAgent()
+    {
+
+        $_wf_agent = M("companys", "oa_", 'DB_CONFIG_OA');
+
+        $list = $_wf_agent->field("oa_companys.*")->join("oa_wf_agent_company ac ON ac.company_id = oa_companys.company_id","left")
+            ->where("ac.ac_id IS NULL")->select();
+
+        if ($list === false) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '查询错误',
+                'errorSql' => $_wf_agent->getlastsql(),
+            );
+        } else {
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '查询成功',
+                'list' => $list,
+            );
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
     // 修改代理商管理员密码
 
     // 重置代理商管理员密码
