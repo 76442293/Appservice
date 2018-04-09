@@ -285,7 +285,7 @@ class AgentAction extends BaseAction
             $rs = $_wf_agent->add($a_data);
         } else {
             //修改代理商
-            $rs = $_wf_agent->where("$a_id = {a_id}")->save($a_data);
+            $rs = $_wf_agent->where("a_id = {$a_id}")->save($a_data);
         }
 
         if ($rs === false) {
