@@ -150,14 +150,15 @@ class AgentAction extends BaseAction
         $au_id = isset($_REQUEST['au_id']) ? $_REQUEST['au_id'] : '0';
         $au_data = array();
         $au_data['au_login_name'] = $_REQUEST['au_login_name'];
-        $au_data['au_psd'] = md5($_REQUEST['au_psd']);
         $au_data['a_id'] = $_REQUEST['a_id'];
         $au_data['au_name'] = $_REQUEST['au_name'];
         $au_data['au_mobile'] = $_REQUEST['au_mobile'];
-        $au_data['create_time'] = date("Y-m-d H:i:s");
+        $au_data['update_time'] = date("Y-m-d H:i:s");
+        $au_data['update_au_id'] = $_REQUEST['update_au_id'];
 
         $_wf_agent_user = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
         if ($au_id == '0') {
+            $au_data['au_psd'] = md5("666666");
             //新增管理员
             $rs = $_wf_agent_user->add($au_data);
         } else {
@@ -202,7 +203,7 @@ class AgentAction extends BaseAction
 
             $_wf_agent_user = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
 
-            $list = $_wf_agent_user->field("au_id,au_login_name,a_id,au_name,create_time")->where("a_id = {$a_id}")->select();
+            $list = $_wf_agent_user->field("au_id,au_login_name,a_id,au_name,au_mobile,create_time")->where("a_id = {$a_id}")->select();
 
             if ($list === false) {
                 $_r = array(
@@ -325,9 +326,9 @@ class AgentAction extends BaseAction
             $_wf_agent_user = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
             $_wf_agent = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
 
-            $agent_company = $_wf_agent_company->find("*")->where("a_id = {$a_id}")->select();
-            $agent_user = $_wf_agent_user->find("*")->where("a_id = {$a_id}")->select();
-            $child_agent = $_wf_agent->find("*")->where("a_parent_id = {$a_id}")->select();
+            $agent_company = $_wf_agent_company->field("*")->where("a_id = {$a_id}")->select();
+            $agent_user = $_wf_agent_user->field("*")->where("a_id = {$a_id}")->select();
+            $child_agent = $_wf_agent->field("*")->where("a_parent_id = {$a_id}")->select();
             if (!empty($agent_company)) {
                 $_r = array(
                     'errorCode' => '3',
@@ -427,32 +428,40 @@ class AgentAction extends BaseAction
                         'errorName' => '执行错误',
                         'errorReason' => '代理商为公司级别,只能有一个下属公司',
                     );
-                } else {
-                    $agent_company = $_wf_agent_company->field("*")->where("company_id = {$company_id}")->select();
 
-                    // 公司是否已归属代理商
-                    if (empty($agent_company)) {
-                        $ac_data = array();
-                        $ac_data['a_id'] = $a_id;
-                        $ac_data['company_id'] = $company_id;
-                        $ac_data['create_time'] = date("Y-m-d H:i:s");
-
-                        $rs = $agent_company->add($ac_data);
-
-                        $_r = array(
-                            'errorCode' => '1',
-                            'errorName' => '执行成功',
-                        );
+                    if (isset($_GET['callback'])) {
+                        echo $_GET['callback'] . '(' . json_encode($_r) . ')';
                     } else {
-
-                        $_r = array(
-                            'errorCode' => '2',
-                            'errorName' => '执行错误',
-                            'errorReason' => '公司已有归属代理商',
-                        );
+                        echo json_encode($_r, JSON_UNESCAPED_UNICODE);
                     }
+                    exit;
                 }
             }
+
+            $agent_company = $_wf_agent_company->field("*")->where("company_id = {$company_id}")->select();
+
+            // 公司是否已归属代理商
+            if (empty($agent_company)) {
+                $ac_data = array();
+                $ac_data['a_id'] = $a_id;
+                $ac_data['company_id'] = $company_id;
+                $ac_data['create_time'] = date("Y-m-d H:i:s");
+
+                $rs = $_wf_agent_company->add($ac_data);
+
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '执行成功',
+                );
+            } else {
+
+                $_r = array(
+                    'errorCode' => '2',
+                    'errorName' => '执行错误',
+                    'errorReason' => '公司已有归属代理商',
+                );
+            }
+
 
         }
 
@@ -771,7 +780,7 @@ class AgentAction extends BaseAction
 
         $_wf_agent = M("companys", "oa_", 'DB_CONFIG_OA');
 
-        $list = $_wf_agent->field("oa_companys.*")->join("oa_wf_agent_company ac ON ac.company_id = oa_companys.company_id","left")
+        $list = $_wf_agent->field("oa_companys.*")->join("oa_wf_agent_company ac ON ac.company_id = oa_companys.company_id", "left")
             ->where("ac.ac_id IS NULL")->select();
 
         if ($list === false) {
@@ -796,8 +805,125 @@ class AgentAction extends BaseAction
         exit;
     }
 
-    // 修改代理商管理员密码
 
-    // 重置代理商管理员密码
+    /**
+     * 取得所有代理商列表
+     */
+    public function listAllAgent()
+    {
+
+        $_wf_agent = M("wf_agent", "oa_", 'DB_CONFIG_OA');
+
+        $list = $_wf_agent->field("*")->select();
+
+        if ($list === false) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '查询错误',
+                'errorSql' => $_wf_agent->getlastsql(),
+            );
+        } else {
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '查询成功',
+                'list' => $list,
+            );
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 修改代理商管理员密码(注意权限:管理员修改自己代码)
+     */
+    public function editAgentUserPsd()
+    {
+        $au_id = isset($_REQUEST['au_id']) ? $_REQUEST['au_id'] : '0';
+        $update_au_id = isset($_REQUEST['update_au_id']) ? $_REQUEST['update_au_id'] : '0';
+
+        $_wf_agent_user = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
+        if ($au_id == 0) {
+            // 参数为空
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => 'au_id参数为空',
+            );
+        } else {
+            $au_data = array();
+            $au_data['au_psd'] = md5($_REQUEST['au_psd']);
+            $au_data['update_time'] = date("Y-m-d H:i:s");
+            $au_data['update_au_id'] = $update_au_id;
+            //修改管理员
+            $rs = $_wf_agent_user->where("au_id = {$au_id}")->save($au_data);
+        }
+
+        if ($rs === false) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '执行错误',
+                'errorSql' => $_wf_agent_user->getlastsql(),
+            );
+        } else {
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '执行成功',
+            );
+        }
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 重置代理商管理员密码(注意权限:只能重置自己和同一个代理商的管理员密码)
+     */
+    public function resetAgentUserPsd()
+    {
+        $au_id = isset($_REQUEST['au_id']) ? $_REQUEST['au_id'] : '0';
+        $update_au_id = isset($_REQUEST['update_au_id']) ? $_REQUEST['update_au_id'] : '0';
+
+        $_wf_agent_user = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
+        if ($au_id == 0) {
+            // 参数为空
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => 'au_id参数为空',
+            );
+        } else {
+            $au_data = array();
+            $au_data['au_psd'] = md5("666666");
+            $au_data['update_time'] = date("Y-m-d H:i:s");
+            $au_data['update_au_id'] = $update_au_id;
+            //修改管理员
+            $rs = $_wf_agent_user->where("au_id = {$au_id}")->save($au_data);
+        }
+
+        if ($rs === false) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '执行错误',
+                'errorSql' => $_wf_agent_user->getlastsql(),
+            );
+        } else {
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '执行成功',
+            );
+        }
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
 
 }
