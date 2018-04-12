@@ -47,6 +47,12 @@ class AgentAction extends BaseAction
                 'errorName' => '查询错误',
                 'errorSql' => $wf_agent->getlastsql(),
             );
+        } else if (empty($wf_agent)) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '查询错误',
+                'errorReason' => '管理员不存在',
+            );
         } else {
 
             $agent_company_list = $_companys->field("oa_companys.*")->join("oa_wf_agent_company company on company.company_id = oa_companys.company_id")
@@ -110,7 +116,7 @@ class AgentAction extends BaseAction
 
         // MD5加密
         $au_psd = md5($au_psd);
-        $agent_user = $_wf_agent_user->field("*")->where("au_login_name = {$au_login_name} and au_psd = {$au_psd}")->find();
+        $agent_user = $_wf_agent_user->field("*")->where("au_login_name = '{$au_login_name}' and au_psd = '{$au_psd}'")->find();
 
         if ($agent_user === false) {
             $_r = array(
@@ -122,7 +128,8 @@ class AgentAction extends BaseAction
             if (empty($list)) {
                 $_r = array(
                     'errorCode' => '2',
-                    'errorName' => '用户登录名称或者密码错误',
+                    'errorName' => '登录错误',
+                    'errorReason' => '用户登录名称或者密码错误',
                 );
             } else {
 
@@ -203,7 +210,7 @@ class AgentAction extends BaseAction
 
             $_wf_agent_user = M("wf_agent_user", "oa_", 'DB_CONFIG_OA');
 
-            $list = $_wf_agent_user->field("au_id,au_login_name,a_id,au_name,au_mobile,create_time")->where("a_id = {$a_id}")->select();
+            $list = $_wf_agent_user->field("au_id,au_login_name,a_id,au_name,au_mobile,update_time,update_au_id")->where("a_id = {$a_id}")->select();
 
             if ($list === false) {
                 $_r = array(
@@ -525,21 +532,25 @@ class AgentAction extends BaseAction
                 'errorReason' => '代理商不存在',
             );
         } else {
-            if ($agent['a_level'] == 0) {
 
-                // 下属公司
-                $agent_company = $_wf_agent_company->field("*")->where("company_id = {$company_id} and a_id = {$a_id}")->select();
+            // 下属公司
+            $agent_company = $_wf_agent_company->field("*")->where("company_id = {$company_id} and a_id = {$a_id}")->select();
 
-                // 公司是否已归属代理商
-                if (!empty($agent_company)) {
+            // 公司是否已归属代理商
+            if (!empty($agent_company)) {
 
-                    $rs = $_wf_agent_company->where("company_id = {$company_id} and a_id = {$a_id}")->delete();
+                $rs = $_wf_agent_company->where("company_id = {$company_id} and a_id = {$a_id}")->delete();
 
-                    $_r = array(
-                        'errorCode' => '1',
-                        'errorName' => '执行成功',
-                    );
-                }
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '执行成功',
+                );
+            } else {
+                $_r = array(
+                    'errorCode' => '5',
+                    'errorName' => '执行错误',
+                    'errorReason' => '代理商和公司不存在归属关系',
+                );
             }
 
         }
