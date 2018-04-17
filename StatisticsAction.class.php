@@ -285,7 +285,17 @@ class StatisticsAction extends BaseAction
             $sql = $sql . $where;
             // GROUP BY 区域
             if (isset($ws_json['groupField']) && !empty($ws_json['groupField'])) {
-                $sql = $sql . " GROUP BY " . $ws_json['groupField'];
+                $isFirst = true;
+                foreach ($ws_json['groupField'] as $kg => $group) {
+                    if ($isFirst) {
+                        $sql = $sql . " GROUP BY ";
+                        $isFirst = false;
+                    } else {
+                        $sql = $sql . " , ";
+                    }
+                    $sql = $sql . $group['field'];
+                }
+                //$sql = $sql . " GROUP BY " . $ws_json['groupField']['field'];
             }
             // ORDER BY 区域
             $orderField = $ws_json['orderField'];
