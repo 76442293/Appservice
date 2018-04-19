@@ -333,12 +333,21 @@ class DataListAction extends BaseAction
                     foreach ($resultTemp as $kr => $vr) {
                         // 搜索条件中是否有此字段
                         $canAdd = true;
+
                         foreach ($searchCondition as $ks => $search) {
-//print("AA\n");
-//print_r($search);
-//print("BB\n");
-//print_r($vr);exit;
+
                             $optionTemp = array();
+
+                            // 此筛选条件有值,且待处理数据中此字段的值符合筛选条件的值
+                            if (!empty($search['valueSelected']) && $search['valueSelected'] != $vr[$search['valueField']]) {
+                                $canAdd = false;
+
+//                                print("AA\n");
+//                                print_r($search);
+//                                print("BB\n");
+//                                print_r($vr);
+                            }
+
                             foreach ($vr as $vrk => $vrv) {
                                 // 搜索条件中有此字段
                                 if ($search['nameField'] == $vrk) {
@@ -347,17 +356,23 @@ class DataListAction extends BaseAction
                                     $optionTemp['name'] = $vrv;
                                     $optionsArr[$vrk][] = $optionTemp;
 
-                                    // 此筛选条件有值,且待处理数据中此字段的值符合筛选条件的值
-                                    if (!empty($search['valueSelected']) && $search['valueSelected'] != $vrv) {
-                                        $canAdd = false;
-                                    }
+
                                 }
                             }
 
                         }
 
+//                        print("AA\n");
+//                        print_r($search);
+//                        print("BB\n");
+//                        print_r($vr);
+//                        print("CC\n");
+//                        var_dump($canAdd);
+//exit;
+
+
                         $searchPass = false;
-                        // 模糊搜索关键字 TODO
+                        // 模糊搜索关键字
                         if (!empty($searchKeyWord) && !empty($searchKeyWordField)) {
                             // 遍历搜索关键字字段
                             foreach ($searchKeyWordField as $key => $keyWord) {
@@ -365,9 +380,9 @@ class DataListAction extends BaseAction
                                 foreach ($vr as $vrk => $vrv) {
                                     // 当前字段是关键字搜索字段
                                     if ($keyWord == $vrk) {
-//print("AA\n");
+//print("CC\n");
 //print_r($vrv);
-//print("BB\n");
+//print("DD\n");
 //print_r($searchKeyWord);
                                         // 当前条数据的本字段的值 不等于 关键字
                                         if (stripos($vrv, $searchKeyWord) !== false) {
