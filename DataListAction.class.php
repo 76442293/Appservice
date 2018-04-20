@@ -415,8 +415,13 @@ class DataListAction extends BaseAction
 //exit;
                     // 将整理好的备选数据项,放在搜索条件中
                     foreach ($optionsArr as $ko => $option) {
+
                         foreach ($searchCondition as $ks => $condition) {
                             if ($condition['nameField'] == $ko) {
+                                $allOption = array();
+                                $allOption['value'] = "";
+                                $allOption['name'] = "全部";
+                                array_unshift($option,$allOption);
                                 $searchCondition[$ks]['options'] = $option;
                             }
                         }

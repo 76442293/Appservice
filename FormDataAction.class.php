@@ -124,6 +124,8 @@ class FormDataAction extends BaseAction
 
                     // 将结构和数据放在返回的结果中
                     $list[0]['wfd_data_json'] = $form_json;
+                    // 表单名称
+                    $list[0]['wff_name_ch'] = $form[0]['wff_name_ch'];
 
                     // 查询成功
                     $_r = array(
