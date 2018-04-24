@@ -369,7 +369,7 @@ class WorkFlowAction extends BaseAction
         $wm_data['wm_is_open'] = 0;
         $wm_data['wm_state'] = 0;
         $wm_data['wm_user_id'] = $node['wn_user'];
-        $wm_data['wm_workflow_id'] = $w_info['wj_id'];
+        $wm_data['wm_workflow_id'] = $w_info['wf_id'];
         $wm_data['wm_workjob_id'] = $workjob_id;
         $wm_data['wm_node_id'] = $node['wn_id'];
         $wm_data['wm_biz_id'] = $bizId;
@@ -392,18 +392,29 @@ class WorkFlowAction extends BaseAction
     {
         $wf_id = $_REQUEST['wf_id'];
         $wj_biz_ids = $_REQUEST['wj_biz_ids'];
-        $rs = $this->start($wf_id, $wj_biz_ids);
-        if ($rs === false) {
+
+        $_wf_form_data = M("wf_form_data", "oa_", 'DB_CONFIG_OA');
+        $fromData = $_wf_form_data->where("wfd_id = {$wj_biz_ids}")->find();
+        if (empty($fromData) || $fromData['wfd_state'] != 0) {
             $_r = array(
                 'errorCode' => '0',
-                'errorName' => '执行错误'
+                'errorName' => '业务单据状态不对,无法启动工作流'
             );
         } else {
-            $_r = array(
-                'errorCode' => '1',
-                'errorName' => '执行成功',
-            );
+            $rs = $this->start($wf_id, $wj_biz_ids);
+            if ($rs === false) {
+                $_r = array(
+                    'errorCode' => '0',
+                    'errorName' => '执行错误'
+                );
+            } else {
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '执行成功',
+                );
+            }
         }
+
 //        echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
@@ -438,7 +449,7 @@ class WorkFlowAction extends BaseAction
         //更新消息状态
         $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
         $wm_data = array();
-        $wm_data['wm_state'] = 2;
+        $wm_data['wm_state'] = 1;
         $_wf_message->where("wm_id = {$message_id}")->save($wm_data);
 
         // 更新工作任务记录信息
@@ -469,4 +480,71 @@ class WorkFlowAction extends BaseAction
         }
         exit;
     }
+
+
+    /**
+     *  审核列表
+     */
+    public function userApproveList()
+    {
+        // 用户ID
+        $wm_user_id = $_REQUEST['user_id'];
+        // 模块ID
+        $module_id = $_REQUEST['module_id'];
+        // 创建时间开始
+        $wm_create_time_start = $_REQUEST['wm_create_time_start'];
+        // 创建时间结束
+        $wm_create_time_end = $_REQUEST['wm_create_time_end'];
+        // 审批状态
+        $wm_state = $_REQUEST['wm_state'];
+//        // 部门
+//        $department_id = $_REQUEST['department_id'];
+
+        $where = "";
+        if (isset($wm_user_id)) {
+            $where = $where . "oa_wf_message.wm_user_id = {$wm_user_id}";
+        }
+        if (isset($module_id)) {
+            $where = $where . "workflow.wf_module = {$module_id}";
+        }
+        if (isset($wm_create_time_start)) {
+            $where = $where . "oa_wf_message.wm_create_time >= '{$wm_create_time_start}'";
+        }
+        if (isset($wm_create_time_end)) {
+            $where = $where . "oa_wf_message.wm_create_time < '{$wm_create_time_end}'";
+        }
+        if (isset($wm_state)) {
+            $where = $where . "oa_wf_message.wm_state = {$wm_state}";
+        }
+//        if(isset($department_id)){
+//            $where = $where . "workflow.wf_module = {$department_id}";
+//        }
+
+
+        $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
+        $message = $_wf_message->field("oa_wf_message.*")->join("oa_wf_workflow workflow on workflow.wf_id = oa_wf_message.wm_workflow_id")
+            ->where($where)->select();
+
+        if ($message === false) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '查询错误',
+                'errorSql' => $_wf_message->getlastsql(),
+            );
+        } else {
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '查询成功',
+                'list' => $message,
+            );
+        }
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+
 }

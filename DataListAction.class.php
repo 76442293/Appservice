@@ -435,6 +435,7 @@ class DataListAction extends BaseAction
                         'list' => $result,
                         'wd_style_json' => $wd_style_json, // 筛选条件
                         'searchKeyWord' => $searchKeyWord,
+                        'wd_form'=>$datalist['wd_form']
                     );
                 }
             }
