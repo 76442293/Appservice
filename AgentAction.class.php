@@ -125,7 +125,7 @@ class AgentAction extends BaseAction
                 'errorSql' => $_wf_agent_user->getlastsql(),
             );
         } else {
-            if (empty($list)) {
+            if (empty($agent_user)) {
                 $_r = array(
                     'errorCode' => '2',
                     'errorName' => '登录错误',

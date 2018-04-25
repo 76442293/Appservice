@@ -497,46 +497,52 @@ class WorkFlowAction extends BaseAction
         $wm_create_time_end = $_REQUEST['wm_create_time_end'];
         // 审批状态
         $wm_state = $_REQUEST['wm_state'];
-//        // 部门
-//        $department_id = $_REQUEST['department_id'];
+        // 公司ID
+        $wf_company = $_REQUEST['company_id'];
 
-        $where = "";
-        if (isset($wm_user_id)) {
-            $where = $where . "oa_wf_message.wm_user_id = {$wm_user_id}";
-        }
-        if (isset($module_id)) {
-            $where = $where . "workflow.wf_module = {$module_id}";
-        }
-        if (isset($wm_create_time_start)) {
-            $where = $where . "oa_wf_message.wm_create_time >= '{$wm_create_time_start}'";
-        }
-        if (isset($wm_create_time_end)) {
-            $where = $where . "oa_wf_message.wm_create_time < '{$wm_create_time_end}'";
-        }
-        if (isset($wm_state)) {
-            $where = $where . "oa_wf_message.wm_state = {$wm_state}";
-        }
-//        if(isset($department_id)){
-//            $where = $where . "workflow.wf_module = {$department_id}";
-//        }
-
-
-        $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
-        $message = $_wf_message->field("oa_wf_message.*")->join("oa_wf_workflow workflow on workflow.wf_id = oa_wf_message.wm_workflow_id")
-            ->where($where)->select();
-
-        if ($message === false) {
+        if (!isset($wf_company)) {
             $_r = array(
-                'errorCode' => '0',
-                'errorName' => '查询错误',
-                'errorSql' => $_wf_message->getlastsql(),
+                'errorCode' => '2',
+                'errorName' => 'company_id参数缺少',
             );
         } else {
-            $_r = array(
-                'errorCode' => '1',
-                'errorName' => '查询成功',
-                'list' => $message,
-            );
+
+            $where = " workflow.wf_company = {$wf_company} ";
+            if (isset($wm_user_id)) {
+                $where = $where . " and oa_wf_message.wm_user_id = {$wm_user_id}";
+            }
+            if (isset($module_id)) {
+                $where = $where . " and workflow.wf_module = {$module_id}";
+            }
+            if (isset($wm_create_time_start)) {
+                $where = $where . " and oa_wf_message.wm_create_time >= '{$wm_create_time_start}'";
+            }
+            if (isset($wm_create_time_end)) {
+                $where = $where . " and oa_wf_message.wm_create_time < '{$wm_create_time_end}'";
+            }
+            if (isset($wm_state)) {
+                $where = $where . " and oa_wf_message.wm_state = {$wm_state}";
+            }
+
+            $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
+            $message = $_wf_message->field("oa_wf_message.*,if(oa_wf_message.wm_state=1,'已审批','未审批') as wm_state_ch," .
+                "(select u.user_name from oa_users u where u.user_id = oa_wf_message.wm_user_id) as user_name ")
+                ->join("oa_wf_workflow workflow on workflow.wf_id = oa_wf_message.wm_workflow_id")
+                ->where($where)->select();
+
+            if ($message === false) {
+                $_r = array(
+                    'errorCode' => '0',
+                    'errorName' => '查询错误',
+                    'errorSql' => $_wf_message->getlastsql(),
+                );
+            } else {
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '查询成功',
+                    'list' => $message,
+                );
+            }
         }
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';

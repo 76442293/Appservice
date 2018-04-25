@@ -72,6 +72,23 @@ class ModuleAction extends BaseAction
     {
         $wm_company = isset($_REQUEST['wm_company']) ? $_REQUEST['wm_company'] : '0';
 
+        $_r = $this->getModuleList($wm_company);
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r);
+        }
+        exit;
+    }
+
+    /**
+     * @param $wm_company
+     * @return array
+     */
+    function getModuleList($wm_company)
+    {
+
         $_wf_module = M("wf_module", "oa_", 'DB_CONFIG_OA');
 
         if (!empty($wm_company)) {
@@ -132,13 +149,7 @@ class ModuleAction extends BaseAction
             }
         }
 
-//        echo $_GET['callback'] . '(' . json_encode($_r) . ')';
-        if (isset($_GET['callback'])) {
-            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
-        } else {
-            echo json_encode($_r);
-        }
-        exit;
+        return $_r;
     }
 
     /**
@@ -149,6 +160,18 @@ class ModuleAction extends BaseAction
         $wm_company = isset($_REQUEST['wm_company']) ? $_REQUEST['wm_company'] : '0';
         $wm_id = $_REQUEST['wm_id'];
 
+        $_r = $this->getModuleDetail($wm_company, $wm_id);
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r);
+        }
+        exit;
+    }
+
+    function getModuleDetail($wm_company, $wm_id)
+    {
         $_wf_module = M("wf_module", "oa_", 'DB_CONFIG_OA');
 
         $detail = $_wf_module->field("oa_wf_module.*, company_name")->join("oa_companys on company_id = wm_company")->where("wm_id = {$wm_id}")->find();
@@ -195,13 +218,9 @@ class ModuleAction extends BaseAction
                 'detail' => $detail,
             );
         }
-//        echo $_GET['callback'] . '(' . json_encode($_r) . ')';
-        if (isset($_GET['callback'])) {
-            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
-        } else {
-            echo json_encode($_r);
-        }
-        exit;
+
+        return $_r;
+
     }
 
     /**
@@ -263,7 +282,7 @@ class ModuleAction extends BaseAction
             if (isset($_GET['callback'])) {
                 echo $_GET['callback'] . '(' . json_encode($_r) . ')';
             } else {
-                echo json_encode($_r,JSON_UNESCAPED_UNICODE);
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
             }
             exit;
         }
@@ -281,7 +300,7 @@ class ModuleAction extends BaseAction
             if (isset($_GET['callback'])) {
                 echo $_GET['callback'] . '(' . json_encode($_r) . ')';
             } else {
-                echo json_encode($_r,JSON_UNESCAPED_UNICODE);
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
             }
             exit;
         }
@@ -399,10 +418,47 @@ class ModuleAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
 
+    // 根据模块ID取得模块信息和该模块下唯一(或者是最新创建)表单结构信息
+    public function getModuleForm()
+    {
+
+        $wm_company = isset($_REQUEST['company_id']) ? $_REQUEST['company_id'] : '0';
+        $wm_id = isset($_REQUEST['module_id']) ? $_REQUEST['module_id'] : '0';
+
+        if ($wm_company == 0) {
+            $_r['errorCode'] = "2";
+            $_r['errorName'] = "company_id参数缺少";
+        } else if ($wm_id == 0) {
+            $_r['errorCode'] = "3";
+            $_r['errorName'] = "module_id参数缺少";
+        } else {
+            // 取得模块信息
+            $_r = $this->getModuleDetail($wm_company, $wm_id);
+
+            // 取得表单结构
+            $_forms = M("wf_forms", "oa_", 'DB_CONFIG_OA');
+            $form = $_forms->field("*")->where("wff_module = {$wm_id} and wff_company = {$wm_company} ")->order(" wff_create_time DESC ")->limit(1)->select();
+
+            if ($form === false || empty($form)) {
+                $_r['formErrorCode'] = "4";
+                $_r['formErrorName'] = "查询错误或者没有数据";
+                $_r['formErrorSql'] = $_forms->getLastSql();
+            } else {
+                $_r['form'] = $form[0];
+            }
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
 
 }
