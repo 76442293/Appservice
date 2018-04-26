@@ -390,7 +390,9 @@ class WorkFlowAction extends BaseAction
      */
     public function startWorkflow()
     {
+        // 工作流ID
         $wf_id = $_REQUEST['wf_id'];
+        // 业务单据ID
         $wj_biz_ids = $_REQUEST['wj_biz_ids'];
 
         $_wf_form_data = M("wf_form_data", "oa_", 'DB_CONFIG_OA');
@@ -525,9 +527,10 @@ class WorkFlowAction extends BaseAction
             }
 
             $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
-            $message = $_wf_message->field("oa_wf_message.*,if(oa_wf_message.wm_state=1,'已审批','未审批') as wm_state_ch," .
+            $message = $_wf_message->field("oa_wf_message.*,if(oa_wf_message.wm_state=1,'已审批','未审批') as wm_state_ch,module.wm_id as module_id,module.wm_name as module_name, " .
                 "(select u.user_name from oa_users u where u.user_id = oa_wf_message.wm_user_id) as user_name ")
-                ->join("oa_wf_workflow workflow on workflow.wf_id = oa_wf_message.wm_workflow_id")
+                ->join(" inner join oa_wf_workflow workflow on workflow.wf_id = oa_wf_message.wm_workflow_id ")
+                ->join(" inner join oa_wf_module module on module.wm_id = workflow.wf_module ")
                 ->where($where)->select();
 
             if ($message === false) {
@@ -551,6 +554,70 @@ class WorkFlowAction extends BaseAction
         }
         exit;
     }
+
+    /**
+     *  用户提交的申请审核列表
+     */
+    public function userApplyList()
+    {
+        // 用户ID
+        $wfd_user_id = $_REQUEST['user_id'];
+        // 模块ID
+        $wfd_module = $_REQUEST['module_id'];
+        // 创建时间开始
+        $wfd_create_time_start = $_REQUEST['create_time_start'];
+        // 创建时间结束
+        $wfd_create_time_end = $_REQUEST['create_time_end'];
+        // 审批状态
+        $wfd_state = $_REQUEST['wfd_state'];
+
+        if (!isset($wfd_user_id)) {
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => 'user_id参数缺少',
+            );
+        } else {
+
+            $where = " wfd_user_id = {$wfd_user_id} ";
+            if (isset($wfd_module)) {
+                $where = $where . " and wfd_module = {$wfd_module}";
+            }
+            if (isset($wfd_create_time_start)) {
+                $where = $where . " and wfd_create_time >= '{$wfd_create_time_start}'";
+            }
+            if (isset($wfd_create_time_end)) {
+                $where = $where . " and wfd_create_time < '{$wfd_create_time_end}'";
+            }
+            if (isset($wfd_state)) {
+                $where = $where . " and wfd_state = {$wfd_state}";
+            }
+
+            $_wf_form_data = M("wf_form_data", "oa_", 'DB_CONFIG_OA');
+            $form_data = $_wf_form_data->field("*,(CASE wfd_state WHEN 0 THEN '未开始审批' WHEN 1 THEN '开始审批' WHEN 2 THEN '审批完成' END) as wfd_state_ch ")
+                ->where($where)->select();
+
+            if ($form_data === false) {
+                $_r = array(
+                    'errorCode' => '0',
+                    'errorName' => '查询错误',
+                    'errorSql' => $_wf_form_data->getlastsql(),
+                );
+            } else {
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '查询成功',
+                    'list' => $form_data,
+                );
+            }
+        }
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
 
 
 }

@@ -77,7 +77,7 @@ class WorkJobAction extends BaseAction
 
             $_wf_workjob = M("wf_workjob", "oa_", 'DB_CONFIG_OA');
 
-            $list = $_wf_workjob->field("*")->where("wj_biz_id = {$wj_biz_id}")->select();
+            $list = $_wf_workjob->field("*,(select user.user_name from oa_users user where user.user_id = oa_wf_workjob.wj_user) as user_name")->where("wj_biz_id = {$wj_biz_id}")->select();
 
             if ($list === false) {
                 $_r = array(
@@ -98,7 +98,7 @@ class WorkJobAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r);
+            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
