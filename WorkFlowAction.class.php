@@ -540,10 +540,63 @@ class WorkFlowAction extends BaseAction
                     'errorSql' => $_wf_message->getlastsql(),
                 );
             } else {
+
+                // 取得备选的模块list和用户list
+                $moduleList = array();
+                $userList = array();
+                foreach ($message as $k => $msg) {
+                    $module['module_id'] = $msg['module_id'];
+                    $module['module_name'] = $msg['module_name'];
+                    $user['wm_user_id'] = $msg['wm_user_id'];
+                    $user['user_name'] = $msg['user_name'];
+
+                    array_push($moduleList, $module);
+                    array_push($userList, $user);
+                }
+
+                // 去除重复
+                $moduleListResult = array();
+                foreach ($moduleList as $key => $value) {
+                    $has = false;
+                    foreach ($moduleListResult as $val) {
+                        if ($val['module_id'] == $value['module_id']) {
+                            $has = true;
+                            break;
+                        }
+                    }
+                    if (!$has)
+                        $moduleListResult[] = $value;
+                }
+
+                $userListResult = array();
+                foreach ($userList as $key => $value) {
+                    $has = false;
+                    foreach ($userListResult as $val) {
+                        if ($val['wm_user_id'] == $value['wm_user_id']) {
+                            $has = true;
+                            break;
+                        }
+                    }
+                    if (!$has)
+                        $userListResult[] = $value;
+                }
+
+                $allOption = array();
+                $allOption['module_id'] = "";
+                $allOption['module_name'] = "全部";
+                array_unshift($moduleListResult,$allOption);
+
+                $allOption = array();
+                $allOption['wm_user_id'] = "";
+                $allOption['user_name'] = "全部";
+                array_unshift($userListResult,$allOption);
+
                 $_r = array(
                     'errorCode' => '1',
                     'errorName' => '查询成功',
                     'list' => $message,
+                    'moduleList' => $moduleListResult,
+                    'userList' => $userListResult,
                 );
             }
         }
@@ -593,7 +646,12 @@ class WorkFlowAction extends BaseAction
             }
 
             $_wf_form_data = M("wf_form_data", "oa_", 'DB_CONFIG_OA');
-            $form_data = $_wf_form_data->field("*,(CASE wfd_state WHEN 0 THEN '未开始审批' WHEN 1 THEN '开始审批' WHEN 2 THEN '审批完成' END) as wfd_state_ch ")
+            $form_data = $_wf_form_data->field(" wfd_id,wfd_company,wfd_module,wfd_workflow,wfd_node,wfd_form,wfd_create_time,wfd_user_id,wfd_state, " .
+                " (select user.user_name from oa_users user where user.user_id = oa_wf_form_data.wfd_user_id) as user_name, " .
+                " (select module.wm_name from oa_wf_module module where module.wm_id = oa_wf_form_data.wfd_module) as module_name, " .
+                " (select form.wff_name from oa_wf_forms form where form.wff_id = oa_wf_form_data.wfd_form) as form_name, " .
+                " (select form.wff_name_ch from oa_wf_forms form where form.wff_id = oa_wf_form_data.wfd_form) as form_name_ch, " .
+                " (CASE wfd_state WHEN 0 THEN '未审批' WHEN 1 THEN '审批中' WHEN 2 THEN '审批完成' END) as wfd_state_ch ")
                 ->where($where)->select();
 
             if ($form_data === false) {
@@ -603,10 +661,63 @@ class WorkFlowAction extends BaseAction
                     'errorSql' => $_wf_form_data->getlastsql(),
                 );
             } else {
+
+                // 取得备选的模块list和用户list
+                $moduleList = array();
+                $userList = array();
+                foreach ($form_data as $k => $fData) {
+                    $module['wfd_module'] = $fData['wfd_module'];
+                    $module['module_name'] = $fData['module_name'];
+                    $user['wfd_user_id'] = $fData['wfd_user_id'];
+                    $user['user_name'] = $fData['user_name'];
+
+                    array_push($moduleList, $module);
+                    array_push($userList, $user);
+                }
+
+                // 去除重复
+                $moduleListResult = array();
+                foreach ($moduleList as $key => $value) {
+                    $has = false;
+                    foreach ($moduleListResult as $val) {
+                        if ($val['wfd_module'] == $value['wfd_module']) {
+                            $has = true;
+                            break;
+                        }
+                    }
+                    if (!$has)
+                        $moduleListResult[] = $value;
+                }
+
+                $userListResult = array();
+                foreach ($userList as $key => $value) {
+                    $has = false;
+                    foreach ($userListResult as $val) {
+                        if ($val['wfd_user_id'] == $value['wfd_user_id']) {
+                            $has = true;
+                            break;
+                        }
+                    }
+                    if (!$has)
+                        $userListResult[] = $value;
+                }
+
+                $allOption = array();
+                $allOption['wfd_module'] = "";
+                $allOption['module_name'] = "全部";
+                array_unshift($moduleListResult,$allOption);
+
+                $allOption = array();
+                $allOption['wfd_user_id'] = "";
+                $allOption['user_name'] = "全部";
+                array_unshift($userListResult,$allOption);
+
                 $_r = array(
                     'errorCode' => '1',
                     'errorName' => '查询成功',
                     'list' => $form_data,
+                    'userList' => $userListResult,
+                    'moduleList' => $moduleListResult,
                 );
             }
         }
@@ -617,7 +728,6 @@ class WorkFlowAction extends BaseAction
         }
         exit;
     }
-
 
 
 }
