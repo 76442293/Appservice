@@ -461,4 +461,49 @@ class ModuleAction extends BaseAction
         exit;
     }
 
+    /**
+     * 根据模块ID取得模块数据汇总
+     */
+    public function getModuleCollecting()
+    {
+
+        $wm_id = isset($_REQUEST['module_id']) ? $_REQUEST['module_id'] : '0';
+
+        if ($wm_id == 0) {
+            $_r['errorCode'] = "2";
+            $_r['errorName'] = "module_id参数缺少";
+        } else {
+
+            $_forms = M("wf_forms", "oa_", 'DB_CONFIG_OA');
+            $_wf_form_data = M("wf_form_data", "oa_", 'DB_CONFIG_OA');
+            $_wf_datalist = M("wf_datalist", "oa_", 'DB_CONFIG_OA');
+            $_wf_statistics = M("wf_statistics", "oa_", 'DB_CONFIG_OA');
+            $_wf_workflow = M("wf_workflow", "oa_", 'DB_CONFIG_OA');
+
+            $formsCount = $_forms->field("*")->where("wff_module = {$wm_id} and wff_abled = 1 ")->count();
+            $formDataCount = $_wf_form_data->field("*")->where("wfd_module = {$wm_id} ")->count();
+            $datalistCount = $_wf_datalist->field("*")->where("wd_module = {$wm_id} and wd_abled = 1 ")->count();
+            $statisticsCount = $_wf_statistics->field("*")->where("ws_module = {$wm_id} and ws_abled = 1 ")->count();
+            $workflowCount = $_wf_workflow->field("*")->where("wf_module = {$wm_id} and wf_abled = 1 ")->count();
+
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '执行成功',
+                'formsCount' => $formsCount,
+                'formDataCount' => $formDataCount,
+                'datalistCount' => $datalistCount,
+                'statisticsCount' => $statisticsCount,
+                'workflowCount' => $workflowCount,
+            );
+
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
 }

@@ -502,9 +502,24 @@ class WorkFlowAction extends BaseAction
         // 公司ID
         $wf_company = $_REQUEST['company_id'];
 
+        // 第N页
+        $page = isset($_REQUEST['page']) ? $_REQUEST['page'] : '0';
+
+        // 每页显示条数
+        $page_count = isset($_REQUEST['page_count']) ? $_REQUEST['page_count'] : '0';
+
+        if ($page <= 0) {
+            $page = 1;
+        }
+
+        if ($page_count <= 0) {
+            $page_count = 100;
+        }
+        $begin = ($page - 1) * $page_count;
+
         if (!isset($wf_company)) {
             $_r = array(
-                'errorCode' => '2',
+                'errorCode' => '3',
                 'errorName' => 'company_id参数缺少',
             );
         } else {
@@ -531,7 +546,13 @@ class WorkFlowAction extends BaseAction
                 "(select u.user_name from oa_users u where u.user_id = oa_wf_message.wm_user_id) as user_name ")
                 ->join(" inner join oa_wf_workflow workflow on workflow.wf_id = oa_wf_message.wm_workflow_id ")
                 ->join(" inner join oa_wf_module module on module.wm_id = workflow.wf_module ")
-                ->where($where)->select();
+                ->where($where)->limit($begin, $page_count)->select();
+
+            $messageAll = $_wf_message->field("oa_wf_message.*,if(oa_wf_message.wm_state=1,'已审批','未审批') as wm_state_ch,module.wm_id as module_id,module.wm_name as module_name, " .
+                "(select u.user_name from oa_users u where u.user_id = oa_wf_message.wm_user_id) as user_name ")
+                ->join(" inner join oa_wf_workflow workflow on workflow.wf_id = oa_wf_message.wm_workflow_id ")
+                ->join(" inner join oa_wf_module module on module.wm_id = workflow.wf_module ")
+                ->where(" workflow.wf_company = {$wf_company} ")->select();
 
             if ($message === false) {
                 $_r = array(
@@ -544,7 +565,7 @@ class WorkFlowAction extends BaseAction
                 // 取得备选的模块list和用户list
                 $moduleList = array();
                 $userList = array();
-                foreach ($message as $k => $msg) {
+                foreach ($messageAll as $k => $msg) {
                     $module['module_id'] = $msg['module_id'];
                     $module['module_name'] = $msg['module_name'];
                     $user['wm_user_id'] = $msg['wm_user_id'];
@@ -584,20 +605,34 @@ class WorkFlowAction extends BaseAction
                 $allOption = array();
                 $allOption['module_id'] = "";
                 $allOption['module_name'] = "全部";
-                array_unshift($moduleListResult,$allOption);
+                array_unshift($moduleListResult, $allOption);
 
                 $allOption = array();
                 $allOption['wm_user_id'] = "";
                 $allOption['user_name'] = "全部";
-                array_unshift($userListResult,$allOption);
+                array_unshift($userListResult, $allOption);
 
-                $_r = array(
-                    'errorCode' => '1',
-                    'errorName' => '查询成功',
-                    'list' => $message,
-                    'moduleList' => $moduleListResult,
-                    'userList' => $userListResult,
-                );
+                if (empty($message) || !isset($message)) {
+                    $_r = array(
+                        'errorCode' => '2',
+                        'errorName' => '没有数据',
+                        'list' => array(),
+                        'moduleList' => $moduleListResult,
+                        'userList' => $userListResult,
+                        'page' => $page,
+                        'page_count' => $page_count,
+                    );
+                } else {
+                    $_r = array(
+                        'errorCode' => '1',
+                        'errorName' => '查询成功',
+                        'list' => $message,
+                        'moduleList' => $moduleListResult,
+                        'userList' => $userListResult,
+                        'page' => $page,
+                        'page_count' => $page_count,
+                    );
+                }
             }
         }
         if (isset($_GET['callback'])) {
@@ -624,9 +659,25 @@ class WorkFlowAction extends BaseAction
         // 审批状态
         $wfd_state = $_REQUEST['wfd_state'];
 
+        // 第N页
+        $page = isset($_REQUEST['page']) ? $_REQUEST['page'] : '0';
+
+        // 每页显示条数
+        $page_count = isset($_REQUEST['page_count']) ? $_REQUEST['page_count'] : '0';
+
+        if ($page <= 0) {
+            $page = 1;
+        }
+
+        if ($page_count <= 0) {
+            $page_count = 100;
+        }
+        $begin = ($page - 1) * $page_count;
+
+
         if (!isset($wfd_user_id)) {
             $_r = array(
-                'errorCode' => '2',
+                'errorCode' => '3',
                 'errorName' => 'user_id参数缺少',
             );
         } else {
@@ -652,7 +703,15 @@ class WorkFlowAction extends BaseAction
                 " (select form.wff_name from oa_wf_forms form where form.wff_id = oa_wf_form_data.wfd_form) as form_name, " .
                 " (select form.wff_name_ch from oa_wf_forms form where form.wff_id = oa_wf_form_data.wfd_form) as form_name_ch, " .
                 " (CASE wfd_state WHEN 0 THEN '未审批' WHEN 1 THEN '审批中' WHEN 2 THEN '审批完成' END) as wfd_state_ch ")
-                ->where($where)->select();
+                ->where($where)->limit($begin, $page_count)->select();
+
+            $form_data_all = $_wf_form_data->field(" wfd_id,wfd_company,wfd_module,wfd_workflow,wfd_node,wfd_form,wfd_create_time,wfd_user_id,wfd_state, " .
+                " (select user.user_name from oa_users user where user.user_id = oa_wf_form_data.wfd_user_id) as user_name, " .
+                " (select module.wm_name from oa_wf_module module where module.wm_id = oa_wf_form_data.wfd_module) as module_name, " .
+                " (select form.wff_name from oa_wf_forms form where form.wff_id = oa_wf_form_data.wfd_form) as form_name, " .
+                " (select form.wff_name_ch from oa_wf_forms form where form.wff_id = oa_wf_form_data.wfd_form) as form_name_ch, " .
+                " (CASE wfd_state WHEN 0 THEN '未审批' WHEN 1 THEN '审批中' WHEN 2 THEN '审批完成' END) as wfd_state_ch ")
+                ->where(" wfd_user_id = {$wfd_user_id} ")->select();
 
             if ($form_data === false) {
                 $_r = array(
@@ -665,7 +724,7 @@ class WorkFlowAction extends BaseAction
                 // 取得备选的模块list和用户list
                 $moduleList = array();
                 $userList = array();
-                foreach ($form_data as $k => $fData) {
+                foreach ($form_data_all as $k => $fData) {
                     $module['wfd_module'] = $fData['wfd_module'];
                     $module['module_name'] = $fData['module_name'];
                     $user['wfd_user_id'] = $fData['wfd_user_id'];
@@ -705,20 +764,35 @@ class WorkFlowAction extends BaseAction
                 $allOption = array();
                 $allOption['wfd_module'] = "";
                 $allOption['module_name'] = "全部";
-                array_unshift($moduleListResult,$allOption);
+                array_unshift($moduleListResult, $allOption);
 
                 $allOption = array();
                 $allOption['wfd_user_id'] = "";
                 $allOption['user_name'] = "全部";
-                array_unshift($userListResult,$allOption);
+                array_unshift($userListResult, $allOption);
 
-                $_r = array(
-                    'errorCode' => '1',
-                    'errorName' => '查询成功',
-                    'list' => $form_data,
-                    'userList' => $userListResult,
-                    'moduleList' => $moduleListResult,
-                );
+                if (empty($form_data) || !isset($form_data)) {
+                    $_r = array(
+                        'errorCode' => '2',
+                        'errorName' => '没有数据',
+                        'list' => array(),
+                        'userList' => $userListResult,
+                        'moduleList' => $moduleListResult,
+                        'page' => $page,
+                        'page_count' => $page_count,
+                    );
+                } else {
+                    $_r = array(
+                        'errorCode' => '1',
+                        'errorName' => '查询成功',
+                        'list' => $form_data,
+                        'userList' => $userListResult,
+                        'moduleList' => $moduleListResult,
+                        'page' => $page,
+                        'page_count' => $page_count,
+                    );
+                }
+
             }
         }
         if (isset($_GET['callback'])) {

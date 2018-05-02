@@ -937,4 +937,50 @@ class AgentAction extends BaseAction
         exit;
     }
 
+    /**
+     * 根据代理商ID取得此代理商下的所有公司列表
+     */
+    public function listAgentCompany()
+    {
+        // 代理商ID
+        $a_id = isset($_REQUEST['a_id']) ? $_REQUEST['a_id'] : '0';
+
+        if ($a_id == 0) {
+            // 参数为空
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => 'a_id参数为空',
+            );
+        } else {
+
+            $_wf_agent_company = M("wf_agent_company", "oa_", 'DB_CONFIG_OA');
+
+            $list = $_wf_agent_company->field("oa_wf_agent_company.*,agent.a_name,agent.a_level,company.company_name ")
+                ->join(" INNER JOIN oa_wf_agent agent ON agent.a_id = oa_wf_agent_company.a_id ")
+                ->join(" INNER JOIN oa_companys company ON company.company_id = oa_wf_agent_company.company_id ")
+                ->where("oa_wf_agent_company.a_id = {$a_id}")->select();
+
+            if ($list === false) {
+                $_r = array(
+                    'errorCode' => '0',
+                    'errorName' => '查询错误',
+                    'errorSql' => $_wf_agent_company->getlastsql(),
+                );
+            } else {
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '查询成功',
+                    'list' => $list,
+                );
+            }
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
 }
