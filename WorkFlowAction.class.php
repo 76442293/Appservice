@@ -288,6 +288,18 @@ class WorkFlowAction extends BaseAction
         $wj_data['wj_create_time'] = date("Y-m-d H:i:s");
         $wj_data['wj_user'] = $node['wn_user'];
 
+        if($node['wn_node_type'] == 1){
+            $_wf_form_data = M("wf_form_data", "oa_", 'DB_CONFIG_OA');
+            $formData = $_wf_form_data->field("*")->where("wfd_id = {$bizId} ")->find();
+
+            $wj_data['wj_user'] = $formData['wfd_user_id'];
+
+        }
+
+        if($node['wn_node_type'] == 1 || $node['wn_node_type'] == 4){
+            $wj_data['wj_update_time'] = $wj_data['wj_create_time'];
+        }
+
         $count = $_wf_workjob->field("count(0) as step")->where("wj_biz_id = {$bizId}")->find();
 
 //print_r($count);

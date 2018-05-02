@@ -77,7 +77,11 @@ class WorkJobAction extends BaseAction
 
             $_wf_workjob = M("wf_workjob", "oa_", 'DB_CONFIG_OA');
 
-            $list = $_wf_workjob->field("*,(select user.user_name from oa_users user where user.user_id = oa_wf_workjob.wj_user) as user_name")->where("wj_biz_id = {$wj_biz_id}")->select();
+            $list = $_wf_workjob->field("oa_wf_workjob.*,(select user.user_name from oa_users user where user.user_id = oa_wf_workjob.wj_user) as user_name".
+                ",(select user.user_face from oa_users user where user.user_id = oa_wf_workjob.wj_user) as user_face".
+                ",node.wn_node_type,(CASE node.wn_node_type WHEN 1 THEN '系统开始节点' WHEN 2 THEN '人工处理节点' WHEN 3 THEN '系统自动节点' WHEN 4 THEN '系统结束节点' END) AS wn_node_type_name ")
+                ->join(" INNER JOIN oa_wf_nodes node ON node.wn_id = oa_wf_workjob.wj_node")
+                ->where(" oa_wf_workjob.wj_biz_id = {$wj_biz_id}")->select();
 
             if ($list === false) {
                 $_r = array(
