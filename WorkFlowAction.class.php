@@ -458,10 +458,29 @@ class WorkFlowAction extends BaseAction
         // 工作任务ID
         $wj_id = $_REQUEST['wj_id'];
 
+
+        $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
+        $message = $_wf_message->where("wm_id = {$message_id}")->find();
+        if($message['wm_state'] != 0){
+
+            $_r = array(
+                'errorCode' => '2',
+                'errorName' => '不可重复审批',
+            );
+
+            if (isset($_GET['callback'])) {
+                echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+            } else {
+                echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+            }
+            exit;
+        }
+
+
+
         $this->handler_user($wf_id, $wn_id, $wj_biz_id, $wj_examine_result);
 
         //更新消息状态
-        $_wf_message = M("wf_message", "oa_", 'DB_CONFIG_OA');
         $wm_data = array();
         $wm_data['wm_state'] = 1;
         $_wf_message->where("wm_id = {$message_id}")->save($wm_data);
@@ -471,6 +490,7 @@ class WorkFlowAction extends BaseAction
         $wj_data['wj_examine_result'] = $wj_examine_result;
         $wj_data['wj_examine_opinion'] = $wj_examine_opinion;
         $wj_data['wj_update_time'] = date("Y-m-d H:i:s");
+        $wj_data['wj_state'] = 1;
         $_wf_workjob = M("wf_workjob", "oa_", 'DB_CONFIG_OA');
 
         $rs = $_wf_workjob->where("wj_id = {$wj_id}")->save($wj_data);
