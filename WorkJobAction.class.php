@@ -75,36 +75,54 @@ class WorkJobAction extends BaseAction
             );
         } else {
 
-            $_wf_workjob = M("wf_workjob", "oa_", 'DB_CONFIG_OA');
+            // 此表单数据所属的表单结构ID
+            $_wf_form_data = M("wf_form_data", "oa_", 'DB_CONFIG_OA');
+            $formData = $_wf_form_data->field("wfd_form")->where("wfd_id = {$wj_biz_id}")->find();
 
-            $list = $_wf_workjob->field("oa_wf_workjob.*,(select user.user_name from oa_users user where user.user_id = oa_wf_workjob.wj_user) as user_name".
-                ",(select user.user_face from oa_users user where user.user_id = oa_wf_workjob.wj_user) as user_face".
-                ",node.wn_node_type,(CASE node.wn_node_type WHEN 1 THEN '系统开始节点' WHEN 2 THEN '人工处理节点' WHEN 3 THEN '系统自动节点' WHEN 4 THEN '系统结束节点' END) AS wn_node_type_name ")
-                ->join(" INNER JOIN oa_wf_nodes node ON node.wn_id = oa_wf_workjob.wj_node")
-                ->where(" oa_wf_workjob.wj_biz_id = {$wj_biz_id}")->select();
+            // 表单结构所属的工作流ID
+            $_wf_forms = M("wf_forms", "oa_", 'DB_CONFIG_OA');
+            $form = $_wf_forms->field("wff_workflow")->where("wff_id = {$formData['wfd_form']}")->find();
 
-            if ($list === false) {
+            // 此工作流下的节点列表
+            $_wf_nodes = M("wf_nodes", "oa_", 'DB_CONFIG_OA');
+            $node_list = $_wf_nodes->field("oa_wf_nodes.wn_id,oa_wf_nodes.wn_name,oa_wf_nodes.wn_node_type,workjob.wj_state" .
+                ",workjob.wj_examine_result,workjob.wj_examine_opinion,workjob.wj_create_time,workjob.wj_update_time" .
+                ",(select user.user_name from oa_users user where user.user_id = workjob.wj_user) as user_name" .
+                ",(select user.user_face from oa_users user where user.user_id = workjob.wj_user) as user_face" .
+                ",(CASE oa_wf_nodes.wn_node_type WHEN 1 THEN '系统开始节点' WHEN 2 THEN '人工处理节点' WHEN 3 THEN '系统自动节点' WHEN 4 THEN '系统结束节点' END) AS wn_node_type_name" .
+                ",(CASE workjob.wj_examine_result WHEN 1 THEN '通过' WHEN 0 THEN '拒绝' ELSE '未处理' END) AS wj_examine_result_name")
+                ->join("LEFT JOIN oa_wf_workjob workjob ON workjob.wj_node = oa_wf_nodes.wn_id AND workjob.wj_biz_id = {$wj_biz_id} ")
+                ->where("oa_wf_nodes.wn_workflow = {$form['wff_workflow']}")->select();
+
+            if ($node_list === false) {
                 $_r = array(
                     'errorCode' => '0',
                     'errorName' => '查询错误',
-                    'errorSql' => $_wf_workjob->getlastsql(),
+                    'errorSql' => $_wf_nodes->getlastsql(),
                 );
             } else {
                 $_r = array(
                     'errorCode' => '1',
                     'errorName' => '查询成功',
-                    'list' => $list,
+                    'list' => $node_list,
                 );
             }
         }
 
-//        echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r,JSON_UNESCAPED_UNICODE);
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
         }
         exit;
+    }
+
+    /**
+     * 根据工作业务表单ID取得此业务ID的工作任务列表
+     */
+    public function listWorkJobTemp()
+    {
+
     }
 
     /**

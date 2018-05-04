@@ -293,6 +293,7 @@ class WorkFlowAction extends BaseAction
             $formData = $_wf_form_data->field("*")->where("wfd_id = {$bizId} ")->find();
 
             $wj_data['wj_user'] = $formData['wfd_user_id'];
+            $wj_data['wj_examine_result'] = 1;
 
         }
 
