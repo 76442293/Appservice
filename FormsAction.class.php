@@ -24,43 +24,49 @@ class FormsAction extends BaseAction
 
         // 表单结构ID
         $wff_id = $_REQUEST['wff_id'];
-        if(isset($wff_id)){
+        if (isset($wff_id)) {
             $where['wff_id'] = $wff_id;
         }
 
         // 表单结构名称
         $wff_name = $_REQUEST['wff_name'];
-        if(isset($wff_name)){
+        if (isset($wff_name)) {
             $where['wff_name'] = $wff_name;
         }
 
         // 公司ID
         $wff_company = $_REQUEST['wff_company'];
-        if(isset($wff_company)){
-            $where['wff_company'] = $wff_company;
+        if (isset($wff_company)) {
+            if ($wff_company == -1) {
+                $where['wff_company'] = array('NEQ', 1);
+            } else {
+                $where['wff_company'] = $wff_company;
+            }
+        } else {
+            $where['wff_company'] = array('NEQ', 1);
         }
 
         // 模块ID
         $wff_module = $_REQUEST['wff_module'];
-        if(isset($wff_module)){
+        if (isset($wff_module)) {
             $where['wff_module'] = $wff_module;
         }
 
         // 工作流ID
         $wff_workflow = $_REQUEST['wff_workflow'];
-        if(isset($wff_workflow)){
+        if (isset($wff_workflow)) {
             $where['wff_workflow'] = $wff_workflow;
         }
 
         // 创建时间
         $wff_create_time = $_REQUEST['wff_create_time'];
-        if(isset($wff_create_time)){
+        if (isset($wff_create_time)) {
             $where['wff_create_time'] = $wff_create_time;
         }
 
         // 表单中文名称
         $wff_name_ch = $_REQUEST['wff_name_ch'];
-        if(isset($wff_name_ch)){
+        if (isset($wff_name_ch)) {
             $where['wff_name_ch'] = $wff_name_ch;
         }
 
@@ -68,7 +74,7 @@ class FormsAction extends BaseAction
         $_forms = M("wf_forms", "oa_", 'DB_CONFIG_OA');
 
         // 查询表单列表
-        $list = $_forms->field("*")->where($where)->select();
+        $list = $_forms->field("*,(SELECT flow.wf_name FROM oa_wf_workflow flow WHERE flow.wf_id = oa_wf_forms.wff_workflow) AS workflow_name ")->where($where)->select();
         if ($list === false) {
             // 执行错误
             $_r = array(
@@ -97,7 +103,7 @@ class FormsAction extends BaseAction
         if (isset($_GET['callback'])) {
             echo $_GET['callback'] . '(' . json_encode($_r) . ')';
         } else {
-            echo json_encode($_r);
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
         }
         exit;
     }
@@ -257,6 +263,73 @@ class FormsAction extends BaseAction
         } else {
             echo json_encode($_r);
         }
+        exit;
+    }
+
+    /**
+     * 复用表单结构
+     *      使用head实现跨域
+     */
+    public function copyForm()
+    {
+        $wff_id = isset($_REQUEST['wff_id']) ? $_REQUEST['wff_id'] : '0';
+        $to_company_id = $_REQUEST['to_company_id'];
+        $to_module_id = $_REQUEST['to_module_id'];
+        $to_workflow_id = $_REQUEST['to_workflow_id'];
+
+        if ($wff_id == '0') {
+            $_r = array(
+                'errorCode' => '3',
+                'errorName' => 'wff_id参数缺少',
+            );
+        } else {
+
+            //判断是否有表单数据应用此表单结构
+            $_wf_forms = M("wf_forms", "oa_", 'DB_CONFIG_OA');
+            $form = $_wf_forms->where("wff_id = {$wff_id}")->find();
+            if (empty($form)) {
+                $_r = array(
+                    'errorCode' => '2',
+                    'errorName' => '表单结构不存在',
+                );
+            } else {
+
+                unset($form['wff_id']);
+                // copy原表单为共享表单
+                if ($to_company_id == 1) {
+                    $form['wff_company'] = 1;
+                    $form['wff_module'] = 0;
+                    $form['wff_workflow'] = 0;
+                } else {
+                    // copay一个共享表单到本公司模块下
+                    $form['wff_company'] = $to_company_id;
+                    $form['wff_module'] = $to_module_id;
+                    $form['wff_workflow'] = $to_workflow_id;
+                    $form['wff_create_time'] = date("Y-m-d H:i:s");//模块创建时间
+                    $form['wff_start_time'] = date("Y-m-d H:i:s");//模块创建时间
+
+                }
+
+                $rs = $_wf_forms->add($form);
+
+                if ($rs === false) {
+                    $_r = array(
+                        'errorCode' => '0',
+                        'errorName' => '执行失败',
+                        'errorSql' => $_wf_forms->getlastsql(),
+                    );
+                } else {
+                    $_r = array(
+                        'errorCode' => '1',
+                        'errorName' => '执行成功',
+                    );
+                }
+            }
+        }
+
+        header('Access-Control-Allow-Origin:*');
+
+        echo json_encode($_r, JSON_UNESCAPED_UNICODE);
         exit;
     }
 

@@ -77,7 +77,7 @@ class WorkJobAction extends BaseAction
 
             // 此表单数据所属的表单结构ID
             $_wf_form_data = M("wf_form_data", "oa_", 'DB_CONFIG_OA');
-            $formData = $_wf_form_data->field("wfd_form")->where("wfd_id = {$wj_biz_id}")->find();
+            $formData = $_wf_form_data->field("wfd_form,wfd_user_id")->where("wfd_id = {$wj_biz_id}")->find();
 
             // 表单结构所属的工作流ID
             $_wf_forms = M("wf_forms", "oa_", 'DB_CONFIG_OA');
@@ -87,12 +87,14 @@ class WorkJobAction extends BaseAction
             $_wf_nodes = M("wf_nodes", "oa_", 'DB_CONFIG_OA');
             $node_list = $_wf_nodes->field("oa_wf_nodes.wn_id,oa_wf_nodes.wn_name,oa_wf_nodes.wn_node_type,workjob.wj_state" .
                 ",workjob.wj_examine_result,workjob.wj_examine_opinion,workjob.wj_create_time,workjob.wj_update_time" .
-                ",(select user.user_name from oa_users user where user.user_id = workjob.wj_user) as user_name" .
-                ",(select user.user_face from oa_users user where user.user_id = workjob.wj_user) as user_face" .
+                ",(select user.user_name from oa_users user where user.user_id = oa_wf_nodes.wn_user) as user_name" .
+                ",(select user.user_face from oa_users user where user.user_id = oa_wf_nodes.wn_user) as user_face" .
                 ",(CASE oa_wf_nodes.wn_node_type WHEN 1 THEN '系统开始节点' WHEN 2 THEN '人工处理节点' WHEN 3 THEN '系统自动节点' WHEN 4 THEN '系统结束节点' END) AS wn_node_type_name" .
                 ",(CASE workjob.wj_examine_result WHEN 1 THEN '通过' WHEN 0 THEN '拒绝' ELSE '未处理' END) AS wj_examine_result_name")
                 ->join("LEFT JOIN oa_wf_workjob workjob ON workjob.wj_node = oa_wf_nodes.wn_id AND workjob.wj_biz_id = {$wj_biz_id} ")
-                ->where("oa_wf_nodes.wn_workflow = {$form['wff_workflow']}")->select();
+                ->where("oa_wf_nodes.wn_workflow = {$form['wff_workflow']}")->order("oa_wf_nodes.wn_step")->select();
+
+
 
             if ($node_list === false) {
                 $_r = array(
@@ -101,6 +103,14 @@ class WorkJobAction extends BaseAction
                     'errorSql' => $_wf_nodes->getlastsql(),
                 );
             } else {
+
+                // 将第一个节点的用户ID修改为提交审批的用户
+                $_users = M("users", "oa_", 'DB_CONFIG_OA');
+                $user = $_users->field("*")->where("user_id = {$formData['wfd_user_id']}")->find();
+
+                $node_list[0]['user_name'] = $user['user_name'];
+                $node_list[0]['user_face'] = $user['user_face'];
+
                 $_r = array(
                     'errorCode' => '1',
                     'errorName' => '查询成功',
