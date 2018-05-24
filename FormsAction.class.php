@@ -181,6 +181,8 @@ class FormsAction extends BaseAction
         $wf_data['wff_node'] = $_REQUEST['wff_node'];
         $wf_data['wff_abled'] = $_REQUEST['wff_abled'];
         $wf_data['wff_json'] = $_REQUEST['wff_json'];
+        $wf_data['wff_name_ch'] = $_REQUEST['wff_name_ch'];
+        $wf_data['wff_icon'] = $_REQUEST['wff_icon'];
 
         $_wf_forms = M("wf_forms", "oa_", 'DB_CONFIG_OA');
         if ($wf_data['wff_abled'] == '1') {
@@ -327,9 +329,11 @@ class FormsAction extends BaseAction
             }
         }
 
-        header('Access-Control-Allow-Origin:*');
-
-        echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r);
+        }
         exit;
     }
 
