@@ -535,7 +535,7 @@ class FlowAction extends BaseAction
         $_flow_node = M("flow_node", "oa_", 'DB_CONFIG_OA');
 
         // 全部节点列表
-        $flow_node_list_all = $_flow_node->field("*")->where("flow_id = {$flow_id} ")->find();
+        $flow_node_list_all = $_flow_node->field("*")->where("flow_id = {$flow_id} and is_delete = 0 ")->find();
 
         // 主线负责人
         $director_user_ids = explode(",", $flow['director_user_ids']);
@@ -632,9 +632,9 @@ class FlowAction extends BaseAction
             $flow_node = $_flow_node->where("flow_node_id = {$flow_node_id}")->find();
 
             // 主线节点的参与人
-            array_merge($user_ids, $flow_node['participant_user_ids']);
+            array_merge($user_ids, explode(",", $flow_node['participant_user_ids']));
             // 主线节点的合作伙伴
-            array_merge($user_ids, $flow_node['partner_user_ids']);
+            array_merge($user_ids, explode(",", $flow_node['partner_user_ids']));
 
             // 方法参数中有节点id时,不使用参数flow_id,使用查询出的flow_id
             $flow_id = $flow_node['flow_id'];
@@ -646,9 +646,9 @@ class FlowAction extends BaseAction
         $_flow = M("flow", "oa_", 'DB_CONFIG_OA');
         $flow = $_flow->where("flow_id = {$flow_id}")->find();
 
-        array_merge($user_ids, $flow['director_user_ids']);
-        array_merge($user_ids, $flow['participant_user_ids']);
-        array_merge($user_ids, $flow['partner_user_ids']);
+        array_merge($user_ids, explode(",", $flow['director_user_ids']));
+        array_merge($user_ids, explode(",", $flow['participant_user_ids']));
+        array_merge($user_ids, explode(",", $flow['partner_user_ids']));
         // 主线的创建者
         array_merge($user_ids, $flow['create_user']);
 
@@ -1332,7 +1332,7 @@ class FlowAction extends BaseAction
         if ($form_data === false) {
             $_r = array(
                 'errorCode' => '0',
-                'errorName' => '执行错误',
+                'errorName' => '执行错误或者数据为空',
                 'errorSql' => $_wf_form_data->getlastsql(),
             );
         } else {
@@ -1362,20 +1362,347 @@ class FlowAction extends BaseAction
         exit;
     }
 
-    // 新建工作主线节点引用
+    /**
+     * 新建评论
+     */
+    public function createComment()
+    {
 
-    // 新建评论
+        $create_user_id = $_REQUEST['operator_id'];
 
-    // 编辑当前用户自己的评论
+        // 评论目标:1 工作主线节点;2 附件;3 备忘;4 表单数据;
+        $comment_type = $_REQUEST['comment_type'];
 
-    // 删除当前用户自己的评论
+        // 被评论的目标id,如果是附件,既file_id,如果是备忘既memo_id,如果是表单数据既wfd_id,如果是节点既flow_node_id
+        $comment_data_id = $_REQUEST['comment_data_id'];
 
-    // 取得我的主线列表 (我创建的)
+        $comment_content = $_REQUEST['comment_content'];
+        $file_url = $_REQUEST['file_url'];
 
-    // 取得全部主线列表 (我是主线负责人或者创建人或者是参与人,如果是参与人必须有查看权限,或者只取我参与的节点列表)
+        // 提醒方式
+        $remind_type = $_REQUEST['remind_type'];
 
-    // 根据节点ID取得子节点列表和所有数据列表
+        $comment_data = array();
+        $comment_data['comment_content'] = $comment_content;
+        $comment_data['file_url'] = $file_url;
+
+        if ($comment_type == 1) {
+            $comment_data['relate_db_name'] = "oa_flow_node";
+            $comment_data['relate_db_id'] = $comment_data_id;
+
+            $flow_node_id = $comment_data_id;
+        } else {
+
+            if ($comment_type == 2) {
+                $db_name = "oa_file";
+            } elseif ($comment_type == 3) {
+                $db_name = "oa_memo";
+            } elseif ($comment_type == 4) {
+                $db_name = "oa_wf_form_data";
+            }
+            // 根据评论目标ID取得对应的数据id
+            $_flow_data = M("flow_data", "oa_", 'DB_CONFIG_OA');
+            $flow_data = $_flow_data->where("relate_db_name = '{$db_name}' and relate_db_id = {$comment_data_id}")->find();
+
+            $comment_data['relate_db_name'] = "oa_flow_data";
+            $comment_data['relate_db_id'] = $flow_data['data_id'];
+
+
+            $flow_node_id = $flow_data['flow_node_id'];
+        }
+
+        $comment_data['create_time'] = date("Y-m-d H:i:s");
+        $comment_data['create_user_id'] = $create_user_id;
+
+        $_comment = M("comment", "oa_", 'DB_CONFIG_OA');
+        $comment_id = $_comment->add($comment_data);
+
+        if ($comment_id === false) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '执行错误',
+                'errorSql' => $_comment->getlastsql(),
+            );
+        } else {
+
+            /************************生成日志和消息相关Start**************************/
+
+            // 生成操作日志并给相关人成生消息
+            if ($remind_type == 1) {
+
+                $this->createLogMessage($create_user_id, "新增评论", $comment_content, $flow_node_id, 0);
+            }
+
+            /************************生成日志和消息相关End**************************/
+
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '执行成功',
+            );
+        }
+
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 编辑当前用户自己的评论
+     */
+    public function editComment()
+    {
+
+        $create_user_id = $_REQUEST['operator_id'];
+
+        $comment_id = $_REQUEST['comment_id'];
+        $comment_content = $_REQUEST['comment_content'];
+        $file_url = $_REQUEST['file_url'];
+
+        $_comment = M("comment", "oa_", 'DB_CONFIG_OA');
+        // 取得旧的评论信息
+        $comment = $_comment->where("comment_id = {$comment_id}")->find();
+        if ($comment['create_user_id'] != $create_user_id) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '此用户无权限修改评论',
+                'errorSql' => $_comment->getlastsql(),
+            );
+        } else {
+
+            $comment_data = array();
+            $comment_data['comment_content'] = $comment_content;
+            $comment_data['file_url'] = $file_url;
+            $comment_data['create_time'] = date("Y-m-d H:i:s");
+            $comment_data['create_user_id'] = $create_user_id;
+
+            $rs = $_comment->where("comment_id = {$comment_id}")->save($comment_data);
+
+            if ($rs === false) {
+                $_r = array(
+                    'errorCode' => '0',
+                    'errorName' => '执行错误',
+                    'errorSql' => $_comment->getlastsql(),
+                );
+            } else {
+
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '执行成功',
+                );
+            }
+        }
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 删除当前用户自己的评论
+     */
+    public function deleteComment()
+    {
+        $create_user_id = $_REQUEST['operator_id'];
+        $comment_id = $_REQUEST['comment_id'];
+
+        $_comment = M("comment", "oa_", 'DB_CONFIG_OA');
+        // 取得旧的评论信息
+        $comment = $_comment->where("comment_id = {$comment_id}")->find();
+        if ($comment['create_user_id'] != $create_user_id) {
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '此用户无权限删除评论',
+                'errorSql' => $_comment->getlastsql(),
+            );
+        } else {
+            // 备忘表的数据
+            $_comment->where("comment_id = {$comment_id}")->delete();
+
+            $_r = array(
+                'errorCode' => '1',
+                'errorName' => '删除成功',
+            );
+        }
+
+
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r);
+        }
+        exit;
+    }
+
+    /**
+     * 取得我的主线列表 (我创建的)
+     */
+    public function getMyFlowList()
+    {
+        $create_user_id = $_REQUEST['operator_id'];
+
+        $_flow = M("flow", "oa_", 'DB_CONFIG_OA');
+
+        // 查询列表
+        $list = $_flow->field("*"
+            . ",(select type.flow_type_name from flow_type_name type where type.flow_type_id = oa_flow.flow_type_id) as flow_type_name"
+            . ",(select user.user_name from oa_users user where user.user_id = oa_flow.create_user) as user_name")
+            ->where("create_user= {$create_user_id}")->select();
+
+        if ($list === false) {
+            // 执行错误
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '执行错误',
+                'errorSql' => $_flow->getlastsql(),
+            );
+        } else {
+            if (empty($list)) {
+                // 数据为空
+                $_r = array(
+                    'errorCode' => '2',
+                    'errorName' => '没有数据',
+                );
+            } else {
+                // 查询成功
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '查询成功',
+                    'list' => $list,
+                );
+            }
+        }
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 取得全部主线列表 (我是主线负责人或者创建人或者是参与人,如果是参与人必须有查看权限,或者只取我参与的节点列表)
+     */
+    public function getAllFlowList()
+    {
+        $create_user_id = $_REQUEST['operator_id'];
+
+        $_flow = M("flow", "oa_", 'DB_CONFIG_OA');
+
+        // 取得全部我创建的或者负责人有我或者参与人有我的工作主线ID
+        $list_my = $_flow->field("GROUP_CONCAT(flow_id) as flow_id")
+            ->where("create_user= {$create_user_id} or find_in_set({$create_user_id},director_user_ids) or find_in_set({$create_user_id},participant_user_ids)")->find();
+
+        $_flow_node = M("flow_node", "oa_", 'DB_CONFIG_OA');
+        // 取得节点参与人有我的工作主线ID
+        $list_my_join = $_flow_node->field("GROUP_CONCAT(DISTINCT flow_id) as flow_id")
+            ->where(" find_in_set({$create_user_id},participant_user_ids) ")->find();
+
+        // 合并工作主线ID,并去重
+        $flow_ids = array_merge(explode(",",$list_my['flow_id']),explode(",",$list_my_join['flow_id']));
+
+        // 根据工作主线ID,查找符合要求的全部工作主线
+        $flow_ids_str = implode(",",$flow_ids);
+        $list = $_flow->field("*"
+            . ",(select type.flow_type_name from flow_type_name type where type.flow_type_id = oa_flow.flow_type_id) as flow_type_name"
+            . ",(select user.user_name from oa_users user where user.user_id = oa_flow.create_user) as user_name")
+            ->where("find_in_set(flow_id,{$flow_ids_str})")->select();
+
+        if ($list === false) {
+            // 执行错误
+            $_r = array(
+                'errorCode' => '0',
+                'errorName' => '执行错误',
+                'errorSql' => $_flow->getlastsql(),
+            );
+        } else {
+            if (empty($list)) {
+                // 数据为空
+                $_r = array(
+                    'errorCode' => '2',
+                    'errorName' => '没有数据',
+                );
+            } else {
+                // 查询成功
+                $_r = array(
+                    'errorCode' => '1',
+                    'errorName' => '查询成功',
+                    'list' => $list,
+                );
+            }
+        }
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    /**
+     * 根据节点ID取得子节点列表和所有数据列表
+     */
+    public function getFlowNodeChildrenList()
+    {
+
+        // 主线ID
+        $flow_node_parent_id = $_REQUEST['flow_node_parent_id'];
+
+        $_flow_node = M("flow_node", "oa_", 'DB_CONFIG_OA');
+
+        // 全部节点列表
+        $flow_node_list = $_flow_node->field("*")->where("flow_node_parent_id = {$flow_node_parent_id} and is_delete = 0")->select();
+
+        // 查询所属此节点的所有数据列表
+        $_flow_data = M("flow_data", "oa_", 'DB_CONFIG_OA');
+        $flow_data_list = $_flow_data->where("flow_node_id = {$flow_node_parent_id}")->oder("create_time")->find();
+
+        $Model = new Model(); // 实例化一个空模型
+
+        $flow_data_result = array();
+        foreach ($flow_data_list as $key => $flow_data){
+            if($flow_data['data_type'] == 0){
+                $primary_key = "file_id";
+            }elseif ($flow_data['data_type'] == 1){
+                $primary_key = "memo_id";
+            }elseif ($flow_data['data_type'] == 2){
+                $primary_key = "wfd_id";
+            }
+            $data = $Model->execute(" select * from {$flow_data['relate_db_name']} WHERE {$primary_key} = {$flow_data['relate_db_id']}");
+
+            $flow_data_result[$key] = $data;
+        }
+
+        // 查询成功
+        $_r = array(
+            'errorCode' => '1',
+            'errorName' => '查询成功',
+            'flow_data_list' => $flow_data_result,
+            'flow_node_list' => $flow_node_list,
+        );
+        if (isset($_GET['callback'])) {
+            echo $_GET['callback'] . '(' . json_encode($_r) . ')';
+        } else {
+            echo json_encode($_r, JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+    }
+
+    // 取得指定节点的信息和评论列表
 
     // 设置通知状态为已读
+
+
+    // 新建工作主线节点引用
+
+    // 移动节点
+
+    // 移动节点数据
 
 }
